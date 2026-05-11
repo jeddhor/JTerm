@@ -163,9 +163,7 @@ void MainWindow::applyTheme(const QString& themeName) {
         if (!view) {
             continue;
         }
-        view->setStyleSheet(
-            QStringLiteral("QPlainTextEdit { background: %1; color: %2; } QLineEdit { background: %1; color: %2; }")
-                .arg(colors.background.name(), colors.foreground.name()));
+        view->setTerminalColors(colors.foreground, colors.background);
     }
 }
 

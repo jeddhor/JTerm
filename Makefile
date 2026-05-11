@@ -10,12 +10,27 @@ RM_RF := rm -rf build $(APP)
 endif
 
 CXX ?= g++
-MOC ?= $(shell command -v moc-qt6 2>/dev/null || command -v moc 2>/dev/null)
+MOC ?= $(firstword \
+	$(wildcard /usr/lib/qt6/libexec/moc) \
+	$(shell command -v moc-qt6 2>/dev/null) \
+	$(shell command -v moc 2>/dev/null))
 PKG_CONFIG ?= pkg-config
+QTERM_PKG ?= qtermwidget6
+
+ifeq ($(strip $(MOC)),)
+$(error Qt6 moc not found. Install qt6-base-dev-tools or run make with MOC=/full/path/to/moc)
+endif
 
 QT_PACKAGES := Qt6Core Qt6Gui Qt6Widgets Qt6Network
-CXXFLAGS := -std=c++20 -O2 -Wall -Wextra -pedantic -Iinclude $(shell $(PKG_CONFIG) --cflags $(QT_PACKAGES))
-LDFLAGS := $(shell $(PKG_CONFIG) --libs $(QT_PACKAGES))
+QTERM_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(QTERM_PKG) 2>/dev/null)
+QTERM_LIBS := $(shell $(PKG_CONFIG) --libs $(QTERM_PKG) 2>/dev/null)
+
+ifeq ($(strip $(QTERM_LIBS)),)
+$(error qtermwidget pkg-config entry not found. Install libqtermwidget6-dev or run make with QTERM_PKG=<pkg-config-name>)
+endif
+
+CXXFLAGS := -std=c++20 -O2 -Wall -Wextra -pedantic -Iinclude $(shell $(PKG_CONFIG) --cflags $(QT_PACKAGES)) $(QTERM_CFLAGS)
+LDFLAGS := $(shell $(PKG_CONFIG) --libs $(QT_PACKAGES)) $(QTERM_LIBS)
 
 SRC := $(wildcard src/*.cpp)
 MOC_HEADERS := include/TerminalView.h include/TerminalPane.h include/SettingsDialog.h include/CommandServer.h include/MainWindow.h

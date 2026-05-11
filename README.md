@@ -1,6 +1,6 @@
 # SplitTerm (Qt6 C++ Terminal Emulator)
 
-SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator with Windows support when Qt6 and toolchain are available.
+SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a real PTY/TTY backend via QTermWidget.
 
 ## Features
 
@@ -36,7 +36,15 @@ SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator with Windows 
   - Gui
   - Widgets
   - Network
+- QTermWidget development package (`qtermwidget6`)
 - Qt Meta-Object Compiler (`moc` or `moc-qt6`)
+
+## Ubuntu Packages
+
+```bash
+sudo apt update
+sudo apt install -y build-essential make pkg-config qt6-base-dev qt6-base-dev-tools libqtermwidget6-dev
+```
 
 ## Build
 

@@ -1,10 +1,9 @@
 #pragma once
 
-#include <QProcess>
+#include <QColor>
 #include <QWidget>
 
-class QLineEdit;
-class QPlainTextEdit;
+class QTermWidget;
 
 class TerminalView : public QWidget {
     Q_OBJECT
@@ -17,6 +16,7 @@ public:
 
     void startShell();
     void sendCommand(const QString& command);
+    void setTerminalColors(const QColor& foreground, const QColor& background);
 
     void copy();
     void paste();
@@ -28,18 +28,7 @@ signals:
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
-private slots:
-    void onReadyReadStdout();
-    void onReadyReadStderr();
-    void onProcessStarted();
-    void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void onUserCommandEntered();
-
 private:
-    void appendOutput(const QString& text);
-
     QString m_shellPath;
-    QProcess* m_process;
-    QPlainTextEdit* m_output;
-    QLineEdit* m_input;
+    QTermWidget* m_terminal;
 };
