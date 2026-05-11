@@ -6,15 +6,27 @@
 
 SnapSplitter::SnapSplitter(Qt::Orientation orientation, QWidget* snapScope, QWidget* parent)
     : QSplitter(orientation, parent)
-    , m_snapScope(snapScope) {}
+    , m_snapScope(snapScope) {
+    connect(this, &QSplitter::splitterMoved, this, &SnapSplitter::onSplitterMoved);
+}
 
 void SnapSplitter::setSnapScope(QWidget* snapScope) {
     m_snapScope = snapScope;
 }
 
-void SnapSplitter::moveSplitter(int pos, int index) {
+void SnapSplitter::onSplitterMoved(int pos, int index) {
+    if (m_isApplyingSnap) {
+        return;
+    }
+
     const int snappedPos = maybeSnapPosition(pos, index);
+    if (snappedPos == pos) {
+        return;
+    }
+
+    m_isApplyingSnap = true;
     QSplitter::moveSplitter(snappedPos, index);
+    m_isApplyingSnap = false;
 }
 
 int SnapSplitter::snapThresholdPx() const {
