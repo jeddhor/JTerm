@@ -470,8 +470,9 @@ void MainWindow::replaceNodeInParent(QWidget* tabPage, QWidget* oldNode, QWidget
         if (index < 0) {
             return;
         }
-        parentSplitter->replaceWidget(index, newNode);
         oldNode->setParent(nullptr);
+        newNode->setParent(parentSplitter);
+        parentSplitter->insertWidget(index, newNode);
         return;
     }
 
@@ -521,12 +522,12 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
             parentSplitter->setStretchFactor(index + 1, 1);
 
             QList<int> sizes = parentSplitter->sizes();
-            if (index >= 0 && index < sizes.size()) {
-                const int current = sizes[index];
-                const int first = qMax(80, current / 2);
-                const int second = qMax(80, current - first);
+            if (index >= 0 && index + 1 < sizes.size()) {
+                const int combined = qMax(160, sizes[index] + sizes[index + 1]);
+                const int first = qMax(80, combined / 2);
+                const int second = qMax(80, combined - first);
                 sizes[index] = first;
-                sizes.insert(index + 1, second);
+                sizes[index + 1] = second;
                 parentSplitter->setSizes(sizes);
             }
             setActivePane(sibling);

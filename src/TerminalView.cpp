@@ -49,11 +49,11 @@ void TerminalView::sendCommand(const QString& command) {
 }
 
 void TerminalView::setTerminalColors(const QColor& foreground, const QColor& background) {
-    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, QStringLiteral("Linux")));
+    Q_UNUSED(foreground);
+    Q_UNUSED(background);
 
-    m_terminal->setStyleSheet(
-        QStringLiteral("QWidget { background-color: %1; color: %2; }")
-            .arg(background.name(), foreground.name()));
+    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, QStringLiteral("Linux")));
+    m_terminal->setStyleSheet(QString());
 }
 
 void TerminalView::copy() {
