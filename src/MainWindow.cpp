@@ -5,11 +5,13 @@
 #include "LayoutEditorDialog.h"
 #include "SnapSplitter.h"
 #include "SettingsDialog.h"
+#include "StartupScriptDialog.h"
 #include "TerminalPane.h"
 #include "TerminalView.h"
 #include "ThemeManager.h"
 
 #include <QApplication>
+#include <QByteArray>
 #include <QFile>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -45,6 +47,26 @@ MainWindow::MainWindow(QWidget* parent)
     if (!m_commandServer->startListening()) {
         QMessageBox::warning(this, QStringLiteral("IPC unavailable"), QStringLiteral("Another instance may already hold the command socket."));
     }
+}
+
+bool MainWindow::loadLayoutFromPath(const QString& path, QString* errorMessage) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Could not open layout file: ") + path;
+        }
+        return false;
+    }
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject()) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Invalid layout JSON in file: ") + path;
+        }
+        return false;
+    }
+
+    return importLayoutObject(doc.object(), errorMessage);
 }
 
 void MainWindow::splitActivePaneHorizontal() {
@@ -636,6 +658,20 @@ void MainWindow::renamePane(TerminalPane* pane) {
     setActivePane(pane);
 }
 
+void MainWindow::editPaneStartupScript(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+
+    StartupScriptDialog dialog(pane->title(), pane->startupScript(), this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    pane->setStartupScript(dialog.script());
+    setActivePane(pane);
+}
+
 void MainWindow::closeTabByIndex(int index) {
     if (index < 0 || index >= m_tabWidget->count()) {
         return;
@@ -798,6 +834,11 @@ QJsonObject MainWindow::serializeNode(QWidget* node) const {
         nodeObject.insert(QStringLiteral("type"), QStringLiteral("pane"));
         nodeObject.insert(QStringLiteral("id"), pane->paneId());
         nodeObject.insert(QStringLiteral("title"), pane->title());
+        const QString startupScript = pane->startupScript();
+        if (!startupScript.isEmpty()) {
+            const QByteArray encoded = startupScript.toUtf8().toBase64();
+            nodeObject.insert(QStringLiteral("startupScriptBase64"), QString::fromLatin1(encoded));
+        }
         return nodeObject;
     }
 
@@ -830,7 +871,18 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
     if (type == QStringLiteral("pane")) {
         const QString paneId = normalizePaneId(nodeObject.value(QStringLiteral("id")).toString());
         const QString paneTitle = nodeObject.value(QStringLiteral("title")).toString();
-        return createPane(paneTitle, paneId);
+        TerminalPane* pane = createPane(paneTitle, paneId);
+
+        const QString startupEncoded = nodeObject.value(QStringLiteral("startupScriptBase64")).toString();
+        if (!startupEncoded.isEmpty()) {
+            const QByteArray decoded = QByteArray::fromBase64(startupEncoded.toLatin1());
+            if (!decoded.isEmpty()) {
+                pane->setStartupScript(QString::fromUtf8(decoded));
+                pane->runStartupScript();
+            }
+        }
+
+        return pane;
     }
 
     if (type == QStringLiteral("splitter")) {
@@ -1002,6 +1054,7 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::activated, this, &MainWindow::setActivePane);
     connect(pane, &TerminalPane::closeRequested, this, &MainWindow::closePane);
     connect(pane, &TerminalPane::renameRequested, this, &MainWindow::renamePane);
+    connect(pane, &TerminalPane::startupScriptRequested, this, &MainWindow::editPaneStartupScript);
     connect(pane, &TerminalPane::preferencesRequested, this, [this](TerminalPane* sourcePane) {
         if (sourcePane) {
             setActivePane(sourcePane);

@@ -17,6 +17,7 @@ class MainWindow : public QMainWindow {
 
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    bool loadLayoutFromPath(const QString& path, QString* errorMessage = nullptr);
 
 private slots:
     void splitActivePaneHorizontal();
@@ -56,6 +57,7 @@ private:
     void splitPane(TerminalPane* pane, Qt::Orientation orientation);
     void closePane(TerminalPane* pane);
     void renamePane(TerminalPane* pane);
+    void editPaneStartupScript(TerminalPane* pane);
 
     void closeTabByIndex(int index);
     void renameTabByIndex(int index);

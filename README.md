@@ -16,6 +16,7 @@ SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a r
 - Pane controls:
   - Right-click menu for copy/paste/select-all
   - Right-click rename, split, and close terminal actions
+  - Right-click startup script editor (shell syntax highlighting)
   - Middle-click paste (primary selection)
   - Closing panes auto-reflows remaining panes
   - Splitter snapping helps align pane boundaries when dragged near nearby pane edges
@@ -83,6 +84,12 @@ make
 
 On Windows with MinGW, executable is `splitterm.exe`.
 
+### Start With A Layout File
+
+```bash
+./splitterm --layout ./layout.json
+```
+
 ## Remote CLI Usage
 
 Send a command to a running SplitTerm instance:
@@ -99,6 +106,14 @@ Or by pane title:
 
 If no running instance is listening, the CLI command returns an error.
 
+## Startup Script Encoding CLI
+
+Generate a base64 payload for `startupScriptBase64` from a script file:
+
+```bash
+./splitterm --encode-startup-script ./startup.sh
+```
+
 ## Layout JSON Shape
 
 Saved layout JSON contains:
@@ -108,6 +123,7 @@ Saved layout JSON contains:
   - each tab has `id`, `title`, and `root`
 - each `root` node:
   - `type: pane` with `id` + `title`
+    - optional `startupScriptBase64` (base64-encoded shell script to auto-execute when pane is loaded from layout JSON)
   - `type: splitter` with `orientation`, `sizes`, and `children`
 
 This preserves nested split structure and pane metadata.

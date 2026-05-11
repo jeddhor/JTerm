@@ -14,6 +14,9 @@ public:
     QString paneId() const;
     QString title() const;
     void setTitle(const QString& title);
+    QString startupScript() const;
+    void setStartupScript(const QString& script);
+    void runStartupScript();
 
     TerminalView* terminalView() const;
 
@@ -22,6 +25,7 @@ signals:
     void activated(TerminalPane* pane);
     void closeRequested(TerminalPane* pane);
     void renameRequested(TerminalPane* pane);
+    void startupScriptRequested(TerminalPane* pane);
     void preferencesRequested(TerminalPane* pane);
     void copyRequested(TerminalPane* pane);
     void pasteRequested(TerminalPane* pane);
@@ -35,6 +39,7 @@ private:
 
     QString m_paneId;
     QString m_title;
+    QString m_startupScript;
 
     QLabel* m_idLabel;
     QLabel* m_titleLabel;

@@ -56,6 +56,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
         QAction* splitHorizontalAction = menu.addAction(QStringLiteral("Split Horizontally"));
         QAction* splitVerticalAction = menu.addAction(QStringLiteral("Split Vertically"));
         QAction* renameAction = menu.addAction(QStringLiteral("Rename Pane..."));
+        QAction* startupScriptAction = menu.addAction(QStringLiteral("Edit Startup Script..."));
         QAction* closeAction = menu.addAction(QStringLiteral("Close Terminal"));
         menu.addSeparator();
         QAction* preferencesAction = menu.addAction(QStringLiteral("Preferences..."));
@@ -77,6 +78,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit splitRequested(this, Qt::Horizontal);
         } else if (chosen == renameAction) {
             emit renameRequested(this);
+        } else if (chosen == startupScriptAction) {
+            emit startupScriptRequested(this);
         } else if (chosen == closeAction) {
             emit closeRequested(this);
         } else if (chosen == preferencesAction) {
@@ -106,6 +109,22 @@ QString TerminalPane::title() const {
 void TerminalPane::setTitle(const QString& title) {
     m_title = title.trimmed().isEmpty() ? (QStringLiteral("Pane ") + m_paneId) : title.trimmed();
     updateHeader();
+}
+
+QString TerminalPane::startupScript() const {
+    return m_startupScript;
+}
+
+void TerminalPane::setStartupScript(const QString& script) {
+    m_startupScript = script;
+}
+
+void TerminalPane::runStartupScript() {
+    if (m_startupScript.trimmed().isEmpty()) {
+        return;
+    }
+
+    m_terminalView->sendCommand(m_startupScript);
 }
 
 TerminalView* TerminalPane::terminalView() const {
