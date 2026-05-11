@@ -2,9 +2,7 @@
 
 #include <QWidget>
 
-class QLineEdit;
 class QLabel;
-class QPushButton;
 class TerminalView;
 
 class TerminalPane : public QWidget {
@@ -22,17 +20,22 @@ public:
 signals:
     void splitRequested(TerminalPane* pane, Qt::Orientation orientation);
     void activated(TerminalPane* pane);
+    void closeRequested(TerminalPane* pane);
+    void renameRequested(TerminalPane* pane);
+    void copyRequested(TerminalPane* pane);
+    void pasteRequested(TerminalPane* pane);
+    void selectAllRequested(TerminalPane* pane);
 
 private slots:
-    void onTitleEdited(const QString& newTitle);
     void onInnerActivated();
 
 private:
+    void updateHeader();
+
     QString m_paneId;
+    QString m_title;
 
     QLabel* m_idLabel;
-    QLineEdit* m_titleEdit;
-    QPushButton* m_splitHorizontalButton;
-    QPushButton* m_splitVerticalButton;
+    QLabel* m_titleLabel;
     TerminalView* m_terminalView;
 };

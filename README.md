@@ -7,9 +7,17 @@ SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a r
 - Flexible pane splitting:
   - Horizontal and vertical splits
   - Nested split tree supports complex layouts (for example, 12 equal panes or mixed asymmetric grids)
+- Tabbed workspaces:
+  - Multiple tabs, each with its own split layout
+  - Tab IDs and user-editable tab titles
 - Pane metadata:
   - Freeform user-editable pane titles
   - Unique pane IDs
+- Pane controls:
+  - Right-click menu for copy/paste/select-all
+  - Right-click rename, split, and close terminal actions
+  - Middle-click paste (primary selection)
+  - Closing panes auto-reflows remaining panes
 - Layout save/load:
   - Save pane tree + splitter geometry to `.json`
   - Load `.json` layouts
@@ -54,6 +62,12 @@ If launch or link errors mention `utf8proc`, install:
 sudo apt install -y libutf8proc3
 ```
 
+For better desktop integration on Ubuntu/KDE environments, these are recommended:
+
+```bash
+sudo apt install -y qdbus-qt6 qt6-gtk-platformtheme qt6-wayland
+```
+
 ## Build
 
 ```bash
@@ -89,7 +103,9 @@ If no running instance is listening, the CLI command returns an error.
 Saved layout JSON contains:
 
 - `version`
-- `root` node:
+- `tabs` array:
+  - each tab has `id`, `title`, and `root`
+- each `root` node:
   - `type: pane` with `id` + `title`
   - `type: splitter` with `orientation`, `sizes`, and `children`
 

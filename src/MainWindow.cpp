@@ -10,6 +10,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -17,21 +18,25 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QStatusBar>
 #include <QSplitter>
+#include <QStatusBar>
+#include <QStyle>
+#include <QTabBar>
+#include <QTabWidget>
 #include <QVBoxLayout>
 #include <QtGlobal>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
-    , m_rootNode(nullptr)
+    , m_tabWidget(nullptr)
     , m_activePane(nullptr)
     , m_nextPaneCounter(1)
+    , m_nextTabCounter(1)
     , m_settings(SettingsStore::load())
     , m_commandServer(new CommandServer(this)) {
     initializeUi();
     createMenus();
-    createInitialPane();
+    createNewTab();
 
     applyTheme(m_settings.themeName);
 
@@ -45,18 +50,47 @@ void MainWindow::splitActivePaneHorizontal() {
     if (!m_activePane) {
         return;
     }
-    splitPane(m_activePane, Qt::Horizontal);
+    splitPane(m_activePane, Qt::Vertical);
 }
 
 void MainWindow::splitActivePaneVertical() {
     if (!m_activePane) {
         return;
     }
-    splitPane(m_activePane, Qt::Vertical);
+    splitPane(m_activePane, Qt::Horizontal);
+}
+
+void MainWindow::closeActivePane() {
+    if (!m_activePane) {
+        return;
+    }
+    closePane(m_activePane);
+}
+
+void MainWindow::renameActivePane() {
+    if (!m_activePane) {
+        return;
+    }
+    renamePane(m_activePane);
+}
+
+void MainWindow::createNewTab() {
+    const QString tabId = nextTabId();
+    const QString tabTitle = QStringLiteral("Tab ") + tabId;
+    QWidget* page = createTabPage(tabId, tabTitle, nullptr);
+    m_tabWidget->setCurrentWidget(page);
+}
+
+void MainWindow::closeCurrentTab() {
+    closeTabByIndex(m_tabWidget->currentIndex());
+}
+
+void MainWindow::renameCurrentTab() {
+    renameTabByIndex(m_tabWidget->currentIndex());
 }
 
 void MainWindow::saveLayoutToFile() {
-    if (!m_rootNode) {
+    if (m_tabWidget->count() == 0) {
         return;
     }
 
@@ -66,8 +100,28 @@ void MainWindow::saveLayoutToFile() {
     }
 
     QJsonObject rootObject;
-    rootObject.insert(QStringLiteral("version"), 1);
-    rootObject.insert(QStringLiteral("root"), serializeNode(m_rootNode));
+    rootObject.insert(QStringLiteral("version"), 2);
+
+    QJsonArray tabsArray;
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QWidget* page = m_tabWidget->widget(i);
+        const TabInfo* info = tabInfoForPage(page);
+        if (!info || !info->rootNode) {
+            continue;
+        }
+
+        QJsonObject tabObject;
+        tabObject.insert(QStringLiteral("id"), info->id);
+        tabObject.insert(QStringLiteral("title"), info->title);
+        tabObject.insert(QStringLiteral("root"), serializeNode(info->rootNode));
+        tabsArray.append(tabObject);
+    }
+
+    rootObject.insert(QStringLiteral("tabs"), tabsArray);
+    const TabInfo* currentInfo = currentTabInfo();
+    if (currentInfo) {
+        rootObject.insert(QStringLiteral("currentTabId"), currentInfo->id);
+    }
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -97,36 +151,79 @@ void MainWindow::loadLayoutFromFile() {
     }
 
     const QJsonObject rootObject = doc.object();
-    const QJsonObject rootNodeObject = rootObject.value(QStringLiteral("root")).toObject();
-    if (rootNodeObject.isEmpty()) {
-        QMessageBox::critical(this, QStringLiteral("Load failed"), QStringLiteral("Layout file missing root node."));
-        return;
+
+    while (m_tabWidget->count() > 0) {
+        QWidget* page = m_tabWidget->widget(0);
+        m_tabInfos.remove(page);
+        m_tabWidget->removeTab(0);
+        page->deleteLater();
     }
 
-    bool ok = true;
     m_usedPaneIds.clear();
+    m_usedTabIds.clear();
     m_nextPaneCounter = 1;
-    QWidget* loadedNode = deserializeNode(rootNodeObject, &ok);
-    if (!ok || !loadedNode) {
-        QMessageBox::critical(this, QStringLiteral("Load failed"), QStringLiteral("Could not deserialize layout."));
-        if (loadedNode) {
-            loadedNode->deleteLater();
+    m_nextTabCounter = 1;
+    m_activePane = nullptr;
+
+    const int version = rootObject.value(QStringLiteral("version")).toInt(1);
+    if (version <= 1) {
+        bool ok = true;
+        QWidget* rootNode = deserializeNode(rootObject.value(QStringLiteral("root")).toObject(), &ok);
+        if (!ok || !rootNode) {
+            QMessageBox::critical(this, QStringLiteral("Load failed"), QStringLiteral("Could not deserialize layout."));
+            createNewTab();
+            return;
         }
+        createTabPage(nextTabId(), QStringLiteral("Tab 1"), rootNode);
+        m_tabWidget->setCurrentIndex(0);
+        syncActivePaneToCurrentTab();
+        applyTheme(m_settings.themeName);
         return;
     }
 
-    if (m_rootNode) {
-        m_rootNode->deleteLater();
+    const QJsonArray tabsArray = rootObject.value(QStringLiteral("tabs")).toArray();
+    for (const QJsonValue& tabValue : tabsArray) {
+        if (!tabValue.isObject()) {
+            continue;
+        }
+        const QJsonObject tabObject = tabValue.toObject();
+
+        bool ok = true;
+        QWidget* rootNode = deserializeNode(tabObject.value(QStringLiteral("root")).toObject(), &ok);
+        if (!ok || !rootNode) {
+            if (rootNode) {
+                rootNode->deleteLater();
+            }
+            continue;
+        }
+
+        QString tabId = normalizeTabId(tabObject.value(QStringLiteral("id")).toString());
+        QString tabTitle = tabObject.value(QStringLiteral("title")).toString();
+        if (tabTitle.trimmed().isEmpty()) {
+            tabTitle = QStringLiteral("Tab ") + tabId;
+        }
+
+        createTabPage(tabId, tabTitle, rootNode);
     }
 
-    m_rootNode = loadedNode;
-    centralWidget()->layout()->addWidget(m_rootNode);
-
-    QList<TerminalPane*> panes;
-    collectPanes(m_rootNode, panes);
-    if (!panes.isEmpty()) {
-        setActivePane(panes.first());
+    if (m_tabWidget->count() == 0) {
+        createNewTab();
     }
+
+    const QString currentTabId = rootObject.value(QStringLiteral("currentTabId")).toString();
+    if (!currentTabId.isEmpty()) {
+        for (int i = 0; i < m_tabWidget->count(); ++i) {
+            QWidget* page = m_tabWidget->widget(i);
+            const TabInfo* info = tabInfoForPage(page);
+            if (info && info->id == currentTabId) {
+                m_tabWidget->setCurrentIndex(i);
+                break;
+            }
+        }
+    }
+
+    syncActivePaneToCurrentTab();
+    applyTheme(m_settings.themeName);
 }
 
 void MainWindow::showSettingsDialog() {
@@ -154,9 +251,7 @@ void MainWindow::applyTheme(const QString& themeName) {
 
     const TerminalColors colors = ThemeManager::terminalColorsForTheme(themeName);
     QList<TerminalPane*> panes;
-    if (m_rootNode) {
-        collectPanes(m_rootNode, panes);
-    }
+    collectAllPanes(panes);
 
     for (TerminalPane* pane : panes) {
         TerminalView* view = pane->terminalView();
@@ -165,6 +260,8 @@ void MainWindow::applyTheme(const QString& themeName) {
         }
         view->setTerminalColors(colors.foreground, colors.background);
     }
+
+    setActivePane(m_activePane);
 }
 
 void MainWindow::handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command) {
@@ -182,18 +279,71 @@ void MainWindow::handleRemoteCommand(const QString& paneId, const QString& paneT
     }
 
     target->terminalView()->sendCommand(command);
+
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QWidget* page = m_tabWidget->widget(i);
+        if (page == target || page->isAncestorOf(target)) {
+            m_tabWidget->setCurrentIndex(i);
+            break;
+        }
+    }
+
     setActivePane(target);
     statusBar()->showMessage(QStringLiteral("Remote command sent to pane ") + target->paneId(), 2500);
 }
 
+void MainWindow::onTabCloseRequested(int index) {
+    closeTabByIndex(index);
+}
+
+void MainWindow::onCurrentTabChanged(int) {
+    syncActivePaneToCurrentTab();
+}
+
 void MainWindow::initializeUi() {
     setWindowTitle(QStringLiteral("SplitTerm"));
-    resize(1400, 900);
+    resize(1500, 900);
 
     auto* host = new QWidget(this);
     auto* hostLayout = new QVBoxLayout(host);
     hostLayout->setContentsMargins(8, 8, 8, 8);
-    hostLayout->setSpacing(8);
+    hostLayout->setSpacing(6);
+
+    m_tabWidget = new QTabWidget(host);
+    m_tabWidget->setDocumentMode(true);
+    m_tabWidget->setMovable(true);
+    m_tabWidget->setTabsClosable(true);
+
+    QTabBar* tabBar = m_tabWidget->tabBar();
+    tabBar->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::onTabCloseRequested);
+    connect(m_tabWidget, &QTabWidget::currentChanged, this, &MainWindow::onCurrentTabChanged);
+    connect(tabBar, &QWidget::customContextMenuRequested, this, [this, tabBar](const QPoint& pos) {
+        const int index = tabBar->tabAt(pos);
+        QMenu menu(this);
+        QAction* newTabAction = menu.addAction(QStringLiteral("New Tab"));
+        QAction* renameTabAction = nullptr;
+        QAction* closeTabAction = nullptr;
+        if (index >= 0) {
+            renameTabAction = menu.addAction(QStringLiteral("Rename Tab..."));
+            closeTabAction = menu.addAction(QStringLiteral("Close Tab"));
+        }
+
+        QAction* chosen = menu.exec(tabBar->mapToGlobal(pos));
+        if (!chosen) {
+            return;
+        }
+        if (chosen == newTabAction) {
+            createNewTab();
+        } else if (chosen == renameTabAction) {
+            renameTabByIndex(index);
+        } else if (chosen == closeTabAction) {
+            closeTabByIndex(index);
+        }
+    });
+
+    hostLayout->addWidget(m_tabWidget, 1);
     setCentralWidget(host);
 }
 
@@ -222,22 +372,73 @@ void MainWindow::createMenus() {
     }, QKeySequence::SelectAll);
 
     auto* paneMenu = menuBar()->addMenu(QStringLiteral("&Pane"));
-    paneMenu->addAction(QStringLiteral("Split Horizontal"), this, &MainWindow::splitActivePaneHorizontal, QKeySequence(QStringLiteral("Ctrl+Shift+H")));
-    paneMenu->addAction(QStringLiteral("Split Vertical"), this, &MainWindow::splitActivePaneVertical, QKeySequence(QStringLiteral("Ctrl+Shift+V")));
+    paneMenu->addAction(QStringLiteral("Split Horizontally"), this, &MainWindow::splitActivePaneHorizontal, QKeySequence(QStringLiteral("Ctrl+Shift+H")));
+    paneMenu->addAction(QStringLiteral("Split Vertically"), this, &MainWindow::splitActivePaneVertical, QKeySequence(QStringLiteral("Ctrl+Shift+V")));
+    paneMenu->addAction(QStringLiteral("Rename Pane..."), this, &MainWindow::renameActivePane, QKeySequence(QStringLiteral("Ctrl+Shift+R")));
+    paneMenu->addAction(QStringLiteral("Close Terminal"), this, &MainWindow::closeActivePane, QKeySequence(QStringLiteral("Ctrl+Shift+W")));
+
+    auto* tabMenu = menuBar()->addMenu(QStringLiteral("&Tab"));
+    tabMenu->addAction(QStringLiteral("New Tab"), this, &MainWindow::createNewTab, QKeySequence(QStringLiteral("Ctrl+T")));
+    tabMenu->addAction(QStringLiteral("Rename Tab..."), this, &MainWindow::renameCurrentTab, QKeySequence(QStringLiteral("Ctrl+Alt+R")));
+    tabMenu->addAction(QStringLiteral("Close Tab"), this, &MainWindow::closeCurrentTab, QKeySequence(QStringLiteral("Ctrl+W")));
 
     auto* settingsMenu = menuBar()->addMenu(QStringLiteral("&Settings"));
     settingsMenu->addAction(QStringLiteral("Preferences..."), this, &MainWindow::showSettingsDialog, QKeySequence(QStringLiteral("Ctrl+,")));
 }
 
-void MainWindow::createInitialPane() {
-    TerminalPane* pane = createPane();
-    m_rootNode = pane;
-    centralWidget()->layout()->addWidget(m_rootNode);
-    setActivePane(pane);
+QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode) {
+    QWidget* page = new QWidget(this);
+    auto* pageLayout = new QVBoxLayout(page);
+    pageLayout->setContentsMargins(2, 2, 2, 2);
+    pageLayout->setSpacing(2);
+
+    QWidget* rootNode = initialRootNode;
+    if (!rootNode) {
+        rootNode = createPane();
+    }
+    rootNode->setParent(page);
+    pageLayout->addWidget(rootNode, 1);
+
+    TabInfo info;
+    info.id = tabId;
+    info.title = tabTitle.trimmed().isEmpty() ? (QStringLiteral("Tab ") + tabId) : tabTitle.trimmed();
+    info.rootNode = rootNode;
+    m_tabInfos.insert(page, info);
+
+    const int index = m_tabWidget->addTab(page, info.title);
+    refreshTabVisual(index);
+    return page;
 }
 
-TerminalPane* MainWindow::createPane(const QString& title) {
-    TerminalPane* pane = new TerminalPane(nextPaneId(), m_settings.defaultShell, this);
+MainWindow::TabInfo* MainWindow::tabInfoForPage(QWidget* page) {
+    if (!page || !m_tabInfos.contains(page)) {
+        return nullptr;
+    }
+    return &m_tabInfos[page];
+}
+
+const MainWindow::TabInfo* MainWindow::tabInfoForPage(QWidget* page) const {
+    if (!page || !m_tabInfos.contains(page)) {
+        return nullptr;
+    }
+    return &m_tabInfos[page];
+}
+
+QWidget* MainWindow::currentTabPage() const {
+    return m_tabWidget->currentWidget();
+}
+
+MainWindow::TabInfo* MainWindow::currentTabInfo() {
+    return tabInfoForPage(currentTabPage());
+}
+
+const MainWindow::TabInfo* MainWindow::currentTabInfo() const {
+    return tabInfoForPage(currentTabPage());
+}
+
+TerminalPane* MainWindow::createPane(const QString& title, const QString& forcedPaneId) {
+    const QString paneId = forcedPaneId.isEmpty() ? nextPaneId() : normalizePaneId(forcedPaneId);
+    TerminalPane* pane = new TerminalPane(paneId, m_settings.defaultShell, this);
     if (!title.isEmpty()) {
         pane->setTitle(title);
     }
@@ -245,10 +446,15 @@ TerminalPane* MainWindow::createPane(const QString& title) {
     return pane;
 }
 
-void MainWindow::replaceNodeInParent(QWidget* oldNode, QWidget* newNode) {
+void MainWindow::replaceNodeInParent(QWidget* tabPage, QWidget* oldNode, QWidget* newNode) {
+    TabInfo* info = tabInfoForPage(tabPage);
+    if (!info) {
+        return;
+    }
+
     QWidget* parent = oldNode->parentWidget();
     if (!parent) {
-        m_rootNode = newNode;
+        info->rootNode = newNode;
         return;
     }
 
@@ -260,12 +466,13 @@ void MainWindow::replaceNodeInParent(QWidget* oldNode, QWidget* newNode) {
         return;
     }
 
-    if (parent == centralWidget()) {
-        auto* layout = centralWidget()->layout();
+    if (parent == tabPage) {
+        auto* layout = tabPage->layout();
         layout->removeWidget(oldNode);
         oldNode->setParent(nullptr);
+        newNode->setParent(tabPage);
         layout->addWidget(newNode);
-        m_rootNode = newNode;
+        info->rootNode = newNode;
     }
 }
 
@@ -274,9 +481,21 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         return;
     }
 
-    QList<TerminalPane*> panes;
-    collectPanes(m_rootNode, panes);
-    if (panes.size() >= m_settings.maxPanes) {
+    QWidget* tabPage = nullptr;
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QWidget* candidate = m_tabWidget->widget(i);
+        if (candidate == pane || candidate->isAncestorOf(pane)) {
+            tabPage = candidate;
+            break;
+        }
+    }
+    if (!tabPage) {
+        return;
+    }
+
+    QList<TerminalPane*> allPanes;
+    collectAllPanes(allPanes);
+    if (allPanes.size() >= m_settings.maxPanes) {
         QMessageBox::information(this, QStringLiteral("Pane limit reached"), QStringLiteral("Increase pane limit in Settings to split further."));
         return;
     }
@@ -288,12 +507,15 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         if (parentSplitter->orientation() == orientation) {
             const int index = parentSplitter->indexOf(pane);
             parentSplitter->insertWidget(index + 1, sibling);
+            parentSplitter->setChildrenCollapsible(false);
+
             QList<int> sizes = parentSplitter->sizes();
             if (index >= 0 && index < sizes.size()) {
-                int current = sizes[index];
-                int half = qMax(1, current / 2);
-                sizes[index] = half;
-                sizes.insert(index + 1, current - half);
+                const int current = sizes[index];
+                const int first = qMax(80, current / 2);
+                const int second = qMax(80, current - first);
+                sizes[index] = first;
+                sizes.insert(index + 1, second);
                 parentSplitter->setSizes(sizes);
             }
             setActivePane(sibling);
@@ -301,14 +523,156 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         }
     }
 
-    auto* newSplitter = new QSplitter(orientation, this);
-    replaceNodeInParent(pane, newSplitter);
+    auto* newSplitter = new QSplitter(orientation, tabPage);
+    newSplitter->setChildrenCollapsible(false);
+    replaceNodeInParent(tabPage, pane, newSplitter);
+
     pane->setParent(newSplitter);
     sibling->setParent(newSplitter);
     newSplitter->addWidget(pane);
     newSplitter->addWidget(sibling);
-    newSplitter->setSizes({1, 1});
+    newSplitter->setStretchFactor(0, 1);
+    newSplitter->setStretchFactor(1, 1);
+    newSplitter->setSizes({500, 500});
+
     setActivePane(sibling);
+}
+
+void MainWindow::closePane(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+
+    QWidget* tabPage = nullptr;
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QWidget* candidate = m_tabWidget->widget(i);
+        if (candidate == pane || candidate->isAncestorOf(pane)) {
+            tabPage = candidate;
+            break;
+        }
+    }
+    if (!tabPage) {
+        return;
+    }
+
+    TabInfo* info = tabInfoForPage(tabPage);
+    if (!info || !info->rootNode) {
+        return;
+    }
+
+    QList<TerminalPane*> tabPanes;
+    collectPanes(info->rootNode, tabPanes);
+    if (tabPanes.size() <= 1) {
+        const int tabIndex = m_tabWidget->indexOf(tabPage);
+        if (m_tabWidget->count() > 1) {
+            closeTabByIndex(tabIndex);
+        }
+        return;
+    }
+
+    auto* parentSplitter = qobject_cast<QSplitter*>(pane->parentWidget());
+    if (!parentSplitter) {
+        return;
+    }
+
+    if (parentSplitter->count() > 2) {
+        pane->setParent(nullptr);
+        pane->deleteLater();
+    } else {
+        QWidget* survivor = nullptr;
+        for (int i = 0; i < parentSplitter->count(); ++i) {
+            QWidget* child = parentSplitter->widget(i);
+            if (child != pane) {
+                survivor = child;
+                break;
+            }
+        }
+        if (!survivor) {
+            return;
+        }
+
+        QWidget* grandParent = parentSplitter->parentWidget();
+        pane->setParent(nullptr);
+        pane->deleteLater();
+
+        if (auto* grandSplitter = qobject_cast<QSplitter*>(grandParent)) {
+            const int index = grandSplitter->indexOf(parentSplitter);
+            survivor->setParent(grandSplitter);
+            grandSplitter->insertWidget(index, survivor);
+            parentSplitter->deleteLater();
+        } else if (grandParent == tabPage) {
+            tabPage->layout()->removeWidget(parentSplitter);
+            survivor->setParent(tabPage);
+            tabPage->layout()->addWidget(survivor);
+            info->rootNode = survivor;
+            parentSplitter->deleteLater();
+        }
+    }
+
+    QList<TerminalPane*> refreshed;
+    collectPanes(info->rootNode, refreshed);
+    if (!refreshed.isEmpty()) {
+        setActivePane(refreshed.first());
+    }
+}
+
+void MainWindow::renamePane(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+
+    bool ok = false;
+    const QString newTitle = QInputDialog::getText(this, QStringLiteral("Rename Pane"), QStringLiteral("Pane title:"), QLineEdit::Normal, pane->title(), &ok);
+    if (!ok) {
+        return;
+    }
+
+    pane->setTitle(newTitle);
+    setActivePane(pane);
+}
+
+void MainWindow::closeTabByIndex(int index) {
+    if (index < 0 || index >= m_tabWidget->count()) {
+        return;
+    }
+    if (m_tabWidget->count() <= 1) {
+        return;
+    }
+
+    QWidget* page = m_tabWidget->widget(index);
+    if (m_activePane && (page == m_activePane || page->isAncestorOf(m_activePane))) {
+        m_activePane = nullptr;
+    }
+
+    m_tabInfos.remove(page);
+    m_tabWidget->removeTab(index);
+    page->deleteLater();
+
+    if (m_tabWidget->count() == 0) {
+        createNewTab();
+    }
+    syncActivePaneToCurrentTab();
+}
+
+void MainWindow::renameTabByIndex(int index) {
+    if (index < 0 || index >= m_tabWidget->count()) {
+        return;
+    }
+
+    QWidget* page = m_tabWidget->widget(index);
+    TabInfo* info = tabInfoForPage(page);
+    if (!info) {
+        return;
+    }
+
+    bool ok = false;
+    const QString newTitle = QInputDialog::getText(this, QStringLiteral("Rename Tab"), QStringLiteral("Tab title:"), QLineEdit::Normal, info->title, &ok);
+    if (!ok) {
+        return;
+    }
+
+    info->title = newTitle.trimmed().isEmpty() ? (QStringLiteral("Tab ") + info->id) : newTitle.trimmed();
+    refreshTabVisual(index);
 }
 
 QJsonObject MainWindow::serializeNode(QWidget* node) const {
@@ -350,21 +714,16 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
     if (type == QStringLiteral("pane")) {
         const QString paneId = normalizePaneId(nodeObject.value(QStringLiteral("id")).toString());
         const QString paneTitle = nodeObject.value(QStringLiteral("title")).toString();
-
-        TerminalPane* pane = new TerminalPane(paneId, m_settings.defaultShell, this);
-        if (!paneTitle.isEmpty()) {
-            pane->setTitle(paneTitle);
-        }
-
-        wirePaneSignals(pane);
-        return pane;
+        return createPane(paneTitle, paneId);
     }
 
     if (type == QStringLiteral("splitter")) {
         const QString orientationString = nodeObject.value(QStringLiteral("orientation")).toString();
-        Qt::Orientation orientation = orientationString == QStringLiteral("vertical") ? Qt::Vertical : Qt::Horizontal;
+        const Qt::Orientation orientation = orientationString == QStringLiteral("vertical") ? Qt::Vertical : Qt::Horizontal;
 
         auto* splitter = new QSplitter(orientation, this);
+        splitter->setChildrenCollapsible(false);
+
         const QJsonArray children = nodeObject.value(QStringLiteral("children")).toArray();
         if (children.isEmpty()) {
             *ok = false;
@@ -416,9 +775,16 @@ void MainWindow::collectPanes(QWidget* node, QList<TerminalPane*>& outPanes) con
     }
 }
 
+void MainWindow::collectAllPanes(QList<TerminalPane*>& outPanes) const {
+    outPanes.clear();
+    for (auto it = m_tabInfos.constBegin(); it != m_tabInfos.constEnd(); ++it) {
+        collectPanes(it.value().rootNode, outPanes);
+    }
+}
+
 TerminalPane* MainWindow::findPaneById(const QString& paneId) const {
     QList<TerminalPane*> panes;
-    collectPanes(m_rootNode, panes);
+    collectAllPanes(panes);
     for (TerminalPane* pane : panes) {
         if (pane->paneId() == paneId) {
             return pane;
@@ -429,7 +795,7 @@ TerminalPane* MainWindow::findPaneById(const QString& paneId) const {
 
 TerminalPane* MainWindow::findPaneByTitle(const QString& paneTitle) const {
     QList<TerminalPane*> panes;
-    collectPanes(m_rootNode, panes);
+    collectAllPanes(panes);
     for (TerminalPane* pane : panes) {
         if (pane->title() == paneTitle) {
             return pane;
@@ -462,26 +828,99 @@ QString MainWindow::normalizePaneId(const QString& desiredId) {
     return nextPaneId();
 }
 
-void MainWindow::setActivePane(TerminalPane* pane) {
-    m_activePane = pane;
-    if (!pane) {
-        return;
+QString MainWindow::nextTabId() {
+    while (m_usedTabIds.contains(QString::number(m_nextTabCounter))) {
+        ++m_nextTabCounter;
+    }
+    const QString id = QString::number(m_nextTabCounter++);
+    m_usedTabIds.insert(id);
+    return id;
+}
+
+QString MainWindow::normalizeTabId(const QString& desiredId) {
+    if (!desiredId.isEmpty() && !m_usedTabIds.contains(desiredId)) {
+        m_usedTabIds.insert(desiredId);
+
+        bool parseOk = false;
+        const int numericId = desiredId.toInt(&parseOk);
+        if (parseOk && numericId >= m_nextTabCounter) {
+            m_nextTabCounter = numericId + 1;
+        }
+        return desiredId;
     }
 
+    return nextTabId();
+}
+
+void MainWindow::setActivePane(TerminalPane* pane) {
+    m_activePane = pane;
+
     QList<TerminalPane*> panes;
-    collectPanes(m_rootNode, panes);
+    collectAllPanes(panes);
     for (TerminalPane* p : panes) {
-        if (p == pane) {
-            p->setStyleSheet(QStringLiteral(
-                "TerminalPane { border: 2px solid rgba(61, 174, 233, 0.85); border-radius: 8px; background: rgba(250, 251, 253, 0.92); }"));
-        } else {
-            p->setStyleSheet(QStringLiteral(
-                "TerminalPane { border: 1px solid rgba(92, 107, 129, 0.4); border-radius: 8px; background: rgba(250, 251, 253, 0.78); }"));
-        }
+        p->setProperty("active", p == pane);
+        p->style()->unpolish(p);
+        p->style()->polish(p);
+        p->update();
     }
 }
 
 void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::splitRequested, this, &MainWindow::splitPane);
     connect(pane, &TerminalPane::activated, this, &MainWindow::setActivePane);
+    connect(pane, &TerminalPane::closeRequested, this, &MainWindow::closePane);
+    connect(pane, &TerminalPane::renameRequested, this, &MainWindow::renamePane);
+    connect(pane, &TerminalPane::copyRequested, this, [this](TerminalPane* sourcePane) {
+        if (sourcePane) {
+            setActivePane(sourcePane);
+            sourcePane->terminalView()->copy();
+        }
+    });
+    connect(pane, &TerminalPane::pasteRequested, this, [this](TerminalPane* sourcePane) {
+        if (sourcePane) {
+            setActivePane(sourcePane);
+            sourcePane->terminalView()->paste();
+        }
+    });
+    connect(pane, &TerminalPane::selectAllRequested, this, [this](TerminalPane* sourcePane) {
+        if (sourcePane) {
+            setActivePane(sourcePane);
+            sourcePane->terminalView()->selectAll();
+        }
+    });
+}
+
+void MainWindow::syncActivePaneToCurrentTab() {
+    const TabInfo* info = currentTabInfo();
+    if (!info || !info->rootNode) {
+        setActivePane(nullptr);
+        return;
+    }
+
+    QList<TerminalPane*> panes;
+    collectPanes(info->rootNode, panes);
+    if (panes.isEmpty()) {
+        setActivePane(nullptr);
+        return;
+    }
+
+    if (m_activePane && panes.contains(m_activePane)) {
+        setActivePane(m_activePane);
+    } else {
+        setActivePane(panes.first());
+    }
+}
+
+void MainWindow::refreshTabVisual(int index) {
+    if (index < 0 || index >= m_tabWidget->count()) {
+        return;
+    }
+    QWidget* page = m_tabWidget->widget(index);
+    const TabInfo* info = tabInfoForPage(page);
+    if (!info) {
+        return;
+    }
+
+    m_tabWidget->setTabText(index, info->title);
+    m_tabWidget->setTabToolTip(index, QStringLiteral("Tab #") + info->id);
 }

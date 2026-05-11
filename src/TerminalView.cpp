@@ -3,6 +3,7 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QKeyEvent>
+#include <QMouseEvent>
 #include <QMetaObject>
 #include <QVBoxLayout>
 
@@ -44,6 +45,10 @@ void TerminalView::sendCommand(const QString& command) {
 }
 
 void TerminalView::setTerminalColors(const QColor& foreground, const QColor& background) {
+    const int luminance = (background.red() * 299 + background.green() * 587 + background.blue() * 114) / 1000;
+    const QString schemeName = luminance < 90 ? QStringLiteral("Breeze") : QStringLiteral("WhiteOnBlack");
+    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, schemeName));
+
     m_terminal->setStyleSheet(
         QStringLiteral("QWidget { background-color: %1; color: %2; }")
             .arg(background.name(), foreground.name()));
@@ -70,6 +75,15 @@ void TerminalView::selectAll() {
 }
 
 bool TerminalView::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_terminal && event->type() == QEvent::MouseButtonPress) {
+        auto* mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::MiddleButton) {
+            m_terminal->pasteSelection();
+            emit becameActive();
+            return true;
+        }
+    }
+
     if (watched == m_terminal && event->type() == QEvent::FocusIn) {
         emit becameActive();
     }

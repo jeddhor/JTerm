@@ -2,39 +2,41 @@
 
 #include "TerminalView.h"
 
+#include <QAction>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
+#include <QMenu>
 #include <QVBoxLayout>
 
 TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWidget* parent)
     : QWidget(parent)
     , m_paneId(paneId)
+    , m_title(QStringLiteral("Pane ") + paneId)
     , m_idLabel(new QLabel(this))
-    , m_titleEdit(new QLineEdit(this))
-    , m_splitHorizontalButton(new QPushButton(QStringLiteral("Split H"), this))
-    , m_splitVerticalButton(new QPushButton(QStringLiteral("Split V"), this))
+    , m_titleLabel(new QLabel(this))
     , m_terminalView(new TerminalView(this)) {
+    setObjectName(QStringLiteral("terminalPane"));
     auto* rootLayout = new QVBoxLayout(this);
-    rootLayout->setContentsMargins(4, 4, 4, 4);
-    rootLayout->setSpacing(6);
+    rootLayout->setContentsMargins(6, 6, 6, 6);
+    rootLayout->setSpacing(4);
 
     auto* titleBar = new QWidget(this);
+    titleBar->setObjectName(QStringLiteral("paneHeader"));
     auto* titleLayout = new QHBoxLayout(titleBar);
-    titleLayout->setContentsMargins(0, 0, 0, 0);
-    titleLayout->setSpacing(6);
+    titleLayout->setContentsMargins(8, 6, 8, 6);
+    titleLayout->setSpacing(8);
 
-    m_idLabel->setText(QStringLiteral("id: ") + paneId);
-    m_idLabel->setMinimumWidth(90);
+    m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    QFont titleFont = m_titleLabel->font();
+    titleFont.setBold(true);
+    m_titleLabel->setFont(titleFont);
 
-    m_titleEdit->setPlaceholderText(QStringLiteral("Pane title"));
-    m_titleEdit->setText(QStringLiteral("Pane ") + paneId);
+    m_idLabel->setMinimumWidth(60);
+    m_idLabel->setAlignment(Qt::AlignCenter);
+    m_idLabel->setObjectName(QStringLiteral("paneIdBadge"));
 
+    titleLayout->addWidget(m_titleLabel, 1);
     titleLayout->addWidget(m_idLabel, 0);
-    titleLayout->addWidget(m_titleEdit, 1);
-    titleLayout->addWidget(m_splitHorizontalButton, 0);
-    titleLayout->addWidget(m_splitVerticalButton, 0);
 
     m_terminalView->setShell(shellPath);
     m_terminalView->startShell();
@@ -42,22 +44,51 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     rootLayout->addWidget(titleBar, 0);
     rootLayout->addWidget(m_terminalView, 1);
 
-    setStyleSheet(QStringLiteral(
-        "TerminalPane {"
-        "  border: 1px solid rgba(92, 107, 129, 0.4);"
-        "  border-radius: 8px;"
-        "  background: rgba(250, 251, 253, 0.8);"
-        "}"
-    ));
+    setContextMenuPolicy(Qt::CustomContextMenu);
+    m_terminalView->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    connect(m_titleEdit, &QLineEdit::textEdited, this, &TerminalPane::onTitleEdited);
-    connect(m_splitHorizontalButton, &QPushButton::clicked, this, [this]() {
-        emit splitRequested(this, Qt::Horizontal);
+    auto openContextMenu = [this](const QPoint& pos) {
+        QMenu menu(this);
+        QAction* copyAction = menu.addAction(QStringLiteral("Copy"));
+        QAction* pasteAction = menu.addAction(QStringLiteral("Paste"));
+        QAction* selectAllAction = menu.addAction(QStringLiteral("Select All"));
+        menu.addSeparator();
+        QAction* splitHorizontalAction = menu.addAction(QStringLiteral("Split Horizontally"));
+        QAction* splitVerticalAction = menu.addAction(QStringLiteral("Split Vertically"));
+        QAction* renameAction = menu.addAction(QStringLiteral("Rename Pane..."));
+        QAction* closeAction = menu.addAction(QStringLiteral("Close Terminal"));
+
+        QAction* chosen = menu.exec(mapToGlobal(pos));
+        if (!chosen) {
+            return;
+        }
+
+        if (chosen == copyAction) {
+            emit copyRequested(this);
+        } else if (chosen == pasteAction) {
+            emit pasteRequested(this);
+        } else if (chosen == selectAllAction) {
+            emit selectAllRequested(this);
+        } else if (chosen == splitHorizontalAction) {
+            emit splitRequested(this, Qt::Vertical);
+        } else if (chosen == splitVerticalAction) {
+            emit splitRequested(this, Qt::Horizontal);
+        } else if (chosen == renameAction) {
+            emit renameRequested(this);
+        } else if (chosen == closeAction) {
+            emit closeRequested(this);
+        }
+    };
+
+    connect(this, &QWidget::customContextMenuRequested, this, openContextMenu);
+    connect(m_terminalView, &QWidget::customContextMenuRequested, this, [this, openContextMenu](const QPoint& localPos) {
+        const QPoint mapped = m_terminalView->mapTo(this, localPos);
+        openContextMenu(mapped);
     });
-    connect(m_splitVerticalButton, &QPushButton::clicked, this, [this]() {
-        emit splitRequested(this, Qt::Vertical);
-    });
+
     connect(m_terminalView, &TerminalView::becameActive, this, &TerminalPane::onInnerActivated);
+
+    updateHeader();
 }
 
 QString TerminalPane::paneId() const {
@@ -65,11 +96,12 @@ QString TerminalPane::paneId() const {
 }
 
 QString TerminalPane::title() const {
-    return m_titleEdit->text();
+    return m_title;
 }
 
 void TerminalPane::setTitle(const QString& title) {
-    m_titleEdit->setText(title);
+    m_title = title.trimmed().isEmpty() ? (QStringLiteral("Pane ") + m_paneId) : title.trimmed();
+    updateHeader();
 }
 
 TerminalView* TerminalPane::terminalView() const {
@@ -82,4 +114,9 @@ void TerminalPane::onTitleEdited(const QString&) {
 
 void TerminalPane::onInnerActivated() {
     emit activated(this);
+}
+
+void TerminalPane::updateHeader() {
+    m_titleLabel->setText(m_title);
+    m_idLabel->setText(QStringLiteral("#") + m_paneId);
 }

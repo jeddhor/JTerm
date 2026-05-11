@@ -2,13 +2,15 @@
 
 #include "AppSettings.h"
 
+#include <QHash>
 #include <QJsonObject>
 #include <QMainWindow>
 #include <QSet>
 
 class CommandServer;
-class QSplitter;
+class QTabWidget;
 class TerminalPane;
+class QWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -19,37 +21,69 @@ public:
 private slots:
     void splitActivePaneHorizontal();
     void splitActivePaneVertical();
+    void closeActivePane();
+    void renameActivePane();
+    void createNewTab();
+    void closeCurrentTab();
+    void renameCurrentTab();
     void saveLayoutToFile();
     void loadLayoutFromFile();
     void showSettingsDialog();
     void applyTheme(const QString& themeName);
     void handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command);
+    void onTabCloseRequested(int index);
+    void onCurrentTabChanged(int index);
 
 private:
+    struct TabInfo {
+        QString id;
+        QString title;
+        QWidget* rootNode = nullptr;
+    };
+
     void initializeUi();
     void createMenus();
-    void createInitialPane();
+    QWidget* createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode = nullptr);
+    TabInfo* tabInfoForPage(QWidget* page);
+    const TabInfo* tabInfoForPage(QWidget* page) const;
+    QWidget* currentTabPage() const;
+    TabInfo* currentTabInfo();
+    const TabInfo* currentTabInfo() const;
 
-    TerminalPane* createPane(const QString& title = QString());
-    void replaceNodeInParent(QWidget* oldNode, QWidget* newNode);
+    TerminalPane* createPane(const QString& title = QString(), const QString& forcedPaneId = QString());
+    void replaceNodeInParent(QWidget* tabPage, QWidget* oldNode, QWidget* newNode);
     void splitPane(TerminalPane* pane, Qt::Orientation orientation);
+    void closePane(TerminalPane* pane);
+    void renamePane(TerminalPane* pane);
+
+    void closeTabByIndex(int index);
+    void renameTabByIndex(int index);
 
     QJsonObject serializeNode(QWidget* node) const;
     QWidget* deserializeNode(const QJsonObject& nodeObject, bool* ok);
 
     void collectPanes(QWidget* node, QList<TerminalPane*>& outPanes) const;
+    void collectAllPanes(QList<TerminalPane*>& outPanes) const;
     TerminalPane* findPaneById(const QString& paneId) const;
     TerminalPane* findPaneByTitle(const QString& paneTitle) const;
     QString nextPaneId();
     QString normalizePaneId(const QString& desiredId);
+    QString nextTabId();
+    QString normalizeTabId(const QString& desiredId);
 
     void setActivePane(TerminalPane* pane);
     void wirePaneSignals(TerminalPane* pane);
+    void syncActivePaneToCurrentTab();
+    void refreshTabVisual(int index);
 
-    QWidget* m_rootNode;
+    QTabWidget* m_tabWidget;
+    QHash<QWidget*, TabInfo> m_tabInfos;
+
     TerminalPane* m_activePane;
     int m_nextPaneCounter;
+    int m_nextTabCounter;
     QSet<QString> m_usedPaneIds;
+    QSet<QString> m_usedTabIds;
     AppSettings m_settings;
     CommandServer* m_commandServer;
 };
