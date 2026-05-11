@@ -40,7 +40,7 @@ CXXFLAGS := -std=c++20 -O2 -Wall -Wextra -pedantic -Iinclude $(shell $(PKG_CONFI
 LDFLAGS := $(shell $(PKG_CONFIG) --libs $(QT_PACKAGES)) $(QTERM_LIBS)
 
 SRC := $(wildcard src/*.cpp)
-MOC_HEADERS := include/TerminalView.h include/TerminalPane.h include/SettingsDialog.h include/CommandServer.h include/MainWindow.h
+MOC_HEADERS := include/SnapSplitter.h include/TerminalView.h include/TerminalPane.h include/SettingsDialog.h include/CommandServer.h include/MainWindow.h
 MOC_SRC := $(patsubst include/%.h,build/moc_%.cpp,$(MOC_HEADERS))
 OBJ := $(patsubst src/%.cpp,build/%.o,$(SRC)) $(patsubst build/%.cpp,build/%.o,$(MOC_SRC))
 

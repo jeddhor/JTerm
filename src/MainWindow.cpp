@@ -2,6 +2,7 @@
 
 #include "AppSettings.h"
 #include "CommandServer.h"
+#include "SnapSplitter.h"
 #include "SettingsDialog.h"
 #include "TerminalPane.h"
 #include "TerminalView.h"
@@ -18,7 +19,6 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QSplitter>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabBar>
@@ -397,6 +397,7 @@ QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle
     }
     rootNode->setParent(page);
     pageLayout->addWidget(rootNode, 1);
+    applySnapScope(rootNode, page);
 
     TabInfo info;
     info.id = tabId;
@@ -546,7 +547,7 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         const QList<int> parentSizesBefore = parentSplitter->sizes();
         const int targetSize = (index >= 0 && index < parentSizesBefore.size()) ? parentSizesBefore[index] : 400;
 
-        auto* newSplitter = new QSplitter(orientation, parentSplitter);
+        auto* newSplitter = new SnapSplitter(orientation, tabPage, parentSplitter);
         newSplitter->setChildrenCollapsible(false);
         parentSplitter->insertWidget(index, newSplitter);
 
@@ -585,7 +586,7 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
 
     if (parentNode == tabPage) {
         auto* sibling = createPane();
-        auto* newSplitter = new QSplitter(orientation, tabPage);
+        auto* newSplitter = new SnapSplitter(orientation, tabPage, tabPage);
         newSplitter->setChildrenCollapsible(false);
 
         auto* layout = tabPage->layout();
@@ -790,7 +791,7 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
         const QString orientationString = nodeObject.value(QStringLiteral("orientation")).toString();
         const Qt::Orientation orientation = orientationString == QStringLiteral("vertical") ? Qt::Vertical : Qt::Horizontal;
 
-        auto* splitter = new QSplitter(orientation, this);
+        auto* splitter = new SnapSplitter(orientation, nullptr, this);
         splitter->setChildrenCollapsible(false);
 
         const QJsonArray children = nodeObject.value(QStringLiteral("children")).toArray();
@@ -825,6 +826,22 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
 
     *ok = false;
     return nullptr;
+}
+
+void MainWindow::applySnapScope(QWidget* node, QWidget* snapScope) {
+    if (!node) {
+        return;
+    }
+
+    if (auto* snapSplitter = qobject_cast<SnapSplitter*>(node)) {
+        snapSplitter->setSnapScope(snapScope);
+    }
+
+    if (auto* splitter = qobject_cast<QSplitter*>(node)) {
+        for (int i = 0; i < splitter->count(); ++i) {
+            applySnapScope(splitter->widget(i), snapScope);
+        }
+    }
 }
 
 void MainWindow::collectPanes(QWidget* node, QList<TerminalPane*>& outPanes) const {

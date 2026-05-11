@@ -18,6 +18,7 @@ SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a r
   - Right-click rename, split, and close terminal actions
   - Middle-click paste (primary selection)
   - Closing panes auto-reflows remaining panes
+  - Splitter snapping helps align pane boundaries when dragged near nearby pane edges
 - Layout save/load:
   - Save pane tree + splitter geometry to `.json`
   - Load `.json` layouts
