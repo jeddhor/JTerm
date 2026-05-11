@@ -46,6 +46,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     m_terminalView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     auto openContextMenu = [this](const QPoint& pos) {
+        emit activated(this);
+
         QMenu menu(this);
         QAction* copyAction = menu.addAction(QStringLiteral("Copy"));
         QAction* pasteAction = menu.addAction(QStringLiteral("Paste"));

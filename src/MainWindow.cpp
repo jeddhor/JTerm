@@ -533,21 +533,55 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
             setActivePane(sibling);
             return;
         }
+
+        const int index = parentSplitter->indexOf(pane);
+        if (index < 0) {
+            sibling->deleteLater();
+            return;
+        }
+
+        auto* newSplitter = new QSplitter(orientation, parentSplitter);
+        newSplitter->setChildrenCollapsible(false);
+        parentSplitter->insertWidget(index, newSplitter);
+
+        pane->setParent(newSplitter);
+        sibling->setParent(newSplitter);
+        newSplitter->addWidget(pane);
+        newSplitter->addWidget(sibling);
+        newSplitter->setStretchFactor(0, 1);
+        newSplitter->setStretchFactor(1, 1);
+        newSplitter->setSizes({500, 500});
+
+        setActivePane(sibling);
+        return;
     }
 
-    auto* newSplitter = new QSplitter(orientation, tabPage);
-    newSplitter->setChildrenCollapsible(false);
-    replaceNodeInParent(tabPage, pane, newSplitter);
+    if (parentNode == tabPage) {
+        auto* newSplitter = new QSplitter(orientation, tabPage);
+        newSplitter->setChildrenCollapsible(false);
 
-    pane->setParent(newSplitter);
-    sibling->setParent(newSplitter);
-    newSplitter->addWidget(pane);
-    newSplitter->addWidget(sibling);
-    newSplitter->setStretchFactor(0, 1);
-    newSplitter->setStretchFactor(1, 1);
-    newSplitter->setSizes({500, 500});
+        auto* layout = tabPage->layout();
+        layout->removeWidget(pane);
+        layout->addWidget(newSplitter);
 
-    setActivePane(sibling);
+        pane->setParent(newSplitter);
+        sibling->setParent(newSplitter);
+        newSplitter->addWidget(pane);
+        newSplitter->addWidget(sibling);
+        newSplitter->setStretchFactor(0, 1);
+        newSplitter->setStretchFactor(1, 1);
+        newSplitter->setSizes({500, 500});
+
+        TabInfo* info = tabInfoForPage(tabPage);
+        if (info) {
+            info->rootNode = newSplitter;
+        }
+
+        setActivePane(sibling);
+        return;
+    }
+
+    sibling->deleteLater();
 }
 
 void MainWindow::closePane(TerminalPane* pane) {
