@@ -127,6 +127,10 @@ void TerminalPane::runStartupScript() {
     m_terminalView->sendCommand(m_startupScript);
 }
 
+bool TerminalPane::hasRunningProcess() const {
+    return m_terminalView && m_terminalView->hasRunningForegroundProcess();
+}
+
 TerminalView* TerminalPane::terminalView() const {
     return m_terminalView;
 }

@@ -85,6 +85,28 @@ void TerminalView::setTerminalColors(const QColor& foreground, const QColor& bac
     m_terminal->setStyleSheet(QString());
 }
 
+int TerminalView::shellProcessId() const {
+    return m_terminal->getShellPID();
+}
+
+int TerminalView::foregroundProcessId() const {
+    return m_terminal->getForegroundProcessId();
+}
+
+bool TerminalView::hasRunningForegroundProcess() const {
+    const int foregroundPid = foregroundProcessId();
+    if (foregroundPid <= 0) {
+        return false;
+    }
+
+    const int shellPid = shellProcessId();
+    if (shellPid <= 0) {
+        return foregroundPid > 0;
+    }
+
+    return foregroundPid != shellPid;
+}
+
 void TerminalView::copy() {
     m_terminal->copyClipboard();
 }

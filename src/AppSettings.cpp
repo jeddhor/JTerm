@@ -21,6 +21,7 @@ AppSettings load() {
     result.defaultShell = settings.value(QStringLiteral("terminal/defaultShell"), defaultShellForPlatform()).toString();
     result.terminalColorScheme = settings.value(QStringLiteral("terminal/colorScheme"), QStringLiteral("WhiteOnBlack")).toString();
     result.maxPanes = settings.value(QStringLiteral("layout/maxPanes"), 32).toInt();
+    result.confirmOnMultiPaneExit = settings.value(QStringLiteral("ui/confirmOnMultiPaneExit"), true).toBool();
     if (result.maxPanes < 2) {
         result.maxPanes = 2;
     }
@@ -36,6 +37,7 @@ void save(const AppSettings& settingsData) {
     settings.setValue(QStringLiteral("terminal/defaultShell"), settingsData.defaultShell);
     settings.setValue(QStringLiteral("terminal/colorScheme"), settingsData.terminalColorScheme);
     settings.setValue(QStringLiteral("layout/maxPanes"), settingsData.maxPanes);
+    settings.setValue(QStringLiteral("ui/confirmOnMultiPaneExit"), settingsData.confirmOnMultiPaneExit);
 }
 
 }

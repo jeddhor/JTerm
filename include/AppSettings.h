@@ -6,6 +6,7 @@ struct AppSettings {
     QString defaultShell;
     QString terminalColorScheme;
     int maxPanes = 32;
+    bool confirmOnMultiPaneExit = true;
 };
 
 namespace SettingsStore {

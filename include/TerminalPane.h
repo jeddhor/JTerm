@@ -17,6 +17,7 @@ public:
     QString startupScript() const;
     void setStartupScript(const QString& script);
     void runStartupScript();
+    bool hasRunningProcess() const;
 
     TerminalView* terminalView() const;
 

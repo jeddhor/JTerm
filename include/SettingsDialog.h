@@ -5,6 +5,7 @@
 #include <QDialog>
 
 class QComboBox;
+class QCheckBox;
 class QLineEdit;
 class QSpinBox;
 
@@ -20,4 +21,5 @@ private:
     QComboBox* m_colorSchemeCombo;
     QLineEdit* m_shellEdit;
     QSpinBox* m_maxPanesSpin;
+    QCheckBox* m_confirmExitCheck;
 };

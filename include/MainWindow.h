@@ -19,6 +19,9 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     bool loadLayoutFromPath(const QString& path, QString* errorMessage = nullptr);
 
+protected:
+    void closeEvent(QCloseEvent* event) override;
+
 private slots:
     void splitActivePaneHorizontal();
     void splitActivePaneVertical();
@@ -73,6 +76,8 @@ private:
 
     void collectPanes(QWidget* node, QList<TerminalPane*>& outPanes) const;
     void collectAllPanes(QList<TerminalPane*>& outPanes) const;
+    QList<TerminalPane*> busyPanes(const QList<TerminalPane*>& panes) const;
+    bool confirmCloseBusyPanes(const QList<TerminalPane*>& panes, const QString& scopeName) const;
     TerminalPane* findPaneById(const QString& paneId) const;
     TerminalPane* findPaneByTitle(const QString& paneTitle) const;
     QString nextPaneId();

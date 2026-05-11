@@ -2,6 +2,7 @@
 
 #include "TerminalView.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -14,6 +15,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     , m_colorSchemeCombo(new QComboBox(this))
     , m_shellEdit(new QLineEdit(this))
     , m_maxPanesSpin(new QSpinBox(this)) {
+    m_confirmExitCheck = new QCheckBox(QStringLiteral("Confirm before exiting when multiple tabs or panes are open"), this);
     setWindowTitle(QStringLiteral("Settings"));
     resize(460, 240);
 
@@ -43,6 +45,8 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     formLayout->addRow(QStringLiteral("Maximum panes:"), m_maxPanesSpin);
 
     rootLayout->addLayout(formLayout);
+    m_confirmExitCheck->setChecked(initialSettings.confirmOnMultiPaneExit);
+    rootLayout->addWidget(m_confirmExitCheck);
     rootLayout->addStretch(1);
 
     auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -57,5 +61,6 @@ AppSettings SettingsDialog::settings() const {
     result.terminalColorScheme = m_colorSchemeCombo->currentText();
     result.defaultShell = m_shellEdit->text().trimmed();
     result.maxPanes = m_maxPanesSpin->value();
+    result.confirmOnMultiPaneExit = m_confirmExitCheck->isChecked();
     return result;
 }

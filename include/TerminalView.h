@@ -20,6 +20,9 @@ public:
     void setTerminalColorScheme(const QString& schemeName);
     QString terminalColorScheme() const;
     void setTerminalColors(const QColor& foreground, const QColor& background);
+    int shellProcessId() const;
+    int foregroundProcessId() const;
+    bool hasRunningForegroundProcess() const;
 
     void copy();
     void paste();

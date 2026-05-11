@@ -12,6 +12,7 @@
 
 #include <QApplication>
 #include <QByteArray>
+#include <QCloseEvent>
 #include <QDesktopServices>
 #include <QFile>
 #include <QFileDialog>
@@ -50,6 +51,42 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_commandServer, &CommandServer::commandReceived, this, &MainWindow::handleRemoteCommand);
     if (!m_commandServer->startListening()) {
         QMessageBox::warning(this, QStringLiteral("IPC unavailable"), QStringLiteral("Another instance may already hold the command socket."));
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent* event) {
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+
+    const QList<TerminalPane*> runningPanes = busyPanes(panes);
+    if (!runningPanes.isEmpty() && !confirmCloseBusyPanes(runningPanes, QStringLiteral("app"))) {
+        event->ignore();
+        return;
+    }
+
+    if (!m_settings.confirmOnMultiPaneExit) {
+        event->accept();
+        return;
+    }
+
+    const bool hasMultipleTabs = m_tabWidget && m_tabWidget->count() > 1;
+    const bool hasMultiplePanes = panes.size() > 1;
+    if (!hasMultipleTabs && !hasMultiplePanes) {
+        event->accept();
+        return;
+    }
+
+    const QMessageBox::StandardButton button = QMessageBox::question(
+        this,
+        QStringLiteral("Confirm Exit"),
+        QStringLiteral("You have multiple tabs or panes open. Exit JTerm?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+
+    if (button == QMessageBox::Yes) {
+        event->accept();
+    } else {
+        event->ignore();
     }
 }
 
@@ -615,6 +652,10 @@ void MainWindow::closePane(TerminalPane* pane) {
         return;
     }
 
+    if (pane->hasRunningProcess() && !confirmCloseBusyPanes({pane}, QStringLiteral("pane"))) {
+        return;
+    }
+
     QWidget* tabPage = nullptr;
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         QWidget* candidate = m_tabWidget->widget(i);
@@ -712,6 +753,7 @@ void MainWindow::editPaneStartupScript(TerminalPane* pane) {
 
     pane->setStartupScript(dialog.script());
     setActivePane(pane);
+    statusBar()->showMessage(QStringLiteral("Startup script saved to current layout state. Choose file destination in Save Layout dialog."), 3500);
     saveLayoutToFile();
 }
 
@@ -719,12 +761,26 @@ void MainWindow::closeTabByIndex(int index) {
     if (index < 0 || index >= m_tabWidget->count()) {
         return;
     }
+
+    QWidget* page = m_tabWidget->widget(index);
+    if (!page) {
+        return;
+    }
+
+    if (TabInfo* info = tabInfoForPage(page)) {
+        QList<TerminalPane*> tabPanes;
+        collectPanes(info->rootNode, tabPanes);
+        const QList<TerminalPane*> runningPanes = busyPanes(tabPanes);
+        if (!runningPanes.isEmpty() && !confirmCloseBusyPanes(runningPanes, QStringLiteral("tab"))) {
+            return;
+        }
+    }
+
     if (m_tabWidget->count() <= 1) {
         close();
         return;
     }
 
-    QWidget* page = m_tabWidget->widget(index);
     if (m_activePane && (page == m_activePane || page->isAncestorOf(m_activePane))) {
         m_activePane = nullptr;
     }
@@ -1007,6 +1063,52 @@ void MainWindow::collectAllPanes(QList<TerminalPane*>& outPanes) const {
     for (auto it = m_tabInfos.constBegin(); it != m_tabInfos.constEnd(); ++it) {
         collectPanes(it.value().rootNode, outPanes);
     }
+}
+
+QList<TerminalPane*> MainWindow::busyPanes(const QList<TerminalPane*>& panes) const {
+    QList<TerminalPane*> running;
+    for (TerminalPane* pane : panes) {
+        if (pane && pane->hasRunningProcess()) {
+            running.append(pane);
+        }
+    }
+    return running;
+}
+
+bool MainWindow::confirmCloseBusyPanes(const QList<TerminalPane*>& panes, const QString& scopeName) const {
+    if (panes.isEmpty()) {
+        return true;
+    }
+
+    QStringList labels;
+    labels.reserve(panes.size());
+    for (TerminalPane* pane : panes) {
+        labels.append(QStringLiteral("#") + pane->paneId() + QStringLiteral(" - ") + pane->title());
+    }
+
+    QString details;
+    constexpr int kMaxShown = 6;
+    for (int i = 0; i < labels.size() && i < kMaxShown; ++i) {
+        details += QStringLiteral("\n - ") + labels.at(i);
+    }
+    if (labels.size() > kMaxShown) {
+        details += QStringLiteral("\n - ... and ") + QString::number(labels.size() - kMaxShown) + QStringLiteral(" more");
+    }
+
+    QString targetText = QStringLiteral("this ") + scopeName;
+    if (scopeName == QStringLiteral("app")) {
+        targetText = QStringLiteral("JTerm");
+    }
+
+    const QMessageBox::StandardButton button = QMessageBox::warning(
+        const_cast<MainWindow*>(this),
+        QStringLiteral("Running Process Detected"),
+        QStringLiteral("One or more terminals appear busy in ") + targetText + QStringLiteral(":") + details
+            + QStringLiteral("\n\nClosing may terminate running commands. Close anyway?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+
+    return button == QMessageBox::Yes;
 }
 
 TerminalPane* MainWindow::findPaneById(const QString& paneId) const {
