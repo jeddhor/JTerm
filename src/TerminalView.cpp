@@ -12,12 +12,16 @@
 TerminalView::TerminalView(QWidget* parent)
     : QWidget(parent)
     , m_terminal(new QTermWidget(0, this)) {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
     auto* rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
     rootLayout->addWidget(m_terminal, 1);
 
     m_terminal->setTerminalSizeHint(false);
+    m_terminal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, QStringLiteral("Linux")));
     m_terminal->installEventFilter(this);
 }
 
@@ -45,9 +49,7 @@ void TerminalView::sendCommand(const QString& command) {
 }
 
 void TerminalView::setTerminalColors(const QColor& foreground, const QColor& background) {
-    const int luminance = (background.red() * 299 + background.green() * 587 + background.blue() * 114) / 1000;
-    const QString schemeName = luminance < 90 ? QStringLiteral("Breeze") : QStringLiteral("WhiteOnBlack");
-    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, schemeName));
+    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, QStringLiteral("Linux")));
 
     m_terminal->setStyleSheet(
         QStringLiteral("QWidget { background-color: %1; color: %2; }")

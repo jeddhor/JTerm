@@ -4,7 +4,6 @@
 
 struct AppSettings {
     QString defaultShell;
-    QString themeName;
     int maxPanes = 32;
 };
 

@@ -15,13 +15,12 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     , m_idLabel(new QLabel(this))
     , m_titleLabel(new QLabel(this))
     , m_terminalView(new TerminalView(this)) {
-    setObjectName(QStringLiteral("terminalPane"));
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(6, 6, 6, 6);
     rootLayout->setSpacing(4);
 
     auto* titleBar = new QWidget(this);
-    titleBar->setObjectName(QStringLiteral("paneHeader"));
     auto* titleLayout = new QHBoxLayout(titleBar);
     titleLayout->setContentsMargins(8, 6, 8, 6);
     titleLayout->setSpacing(8);
@@ -33,7 +32,6 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
 
     m_idLabel->setMinimumWidth(60);
     m_idLabel->setAlignment(Qt::AlignCenter);
-    m_idLabel->setObjectName(QStringLiteral("paneIdBadge"));
 
     titleLayout->addWidget(m_titleLabel, 1);
     titleLayout->addWidget(m_idLabel, 0);

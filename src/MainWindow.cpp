@@ -38,7 +38,7 @@ MainWindow::MainWindow(QWidget* parent)
     createMenus();
     createNewTab();
 
-    applyTheme(m_settings.themeName);
+    applyTheme(QString());
 
     connect(m_commandServer, &CommandServer::commandReceived, this, &MainWindow::handleRemoteCommand);
     if (!m_commandServer->startListening()) {
@@ -177,7 +177,7 @@ void MainWindow::loadLayoutFromFile() {
         createTabPage(nextTabId(), QStringLiteral("Tab 1"), rootNode);
         m_tabWidget->setCurrentIndex(0);
         syncActivePaneToCurrentTab();
-        applyTheme(m_settings.themeName);
+        applyTheme(QString());
         return;
     }
 
@@ -223,7 +223,7 @@ void MainWindow::loadLayoutFromFile() {
     }
 
     syncActivePaneToCurrentTab();
-    applyTheme(m_settings.themeName);
+    applyTheme(QString());
 }
 
 void MainWindow::showSettingsDialog() {
@@ -242,11 +242,10 @@ void MainWindow::showSettingsDialog() {
     }
 
     SettingsStore::save(m_settings);
-    applyTheme(m_settings.themeName);
+    applyTheme(QString());
 }
 
 void MainWindow::applyTheme(const QString& themeName) {
-    m_settings.themeName = themeName;
     ThemeManager::applyTheme(*qApp, themeName);
 
     const TerminalColors colors = ThemeManager::terminalColorsForTheme(themeName);
@@ -468,9 +467,11 @@ void MainWindow::replaceNodeInParent(QWidget* tabPage, QWidget* oldNode, QWidget
 
     if (auto* parentSplitter = qobject_cast<QSplitter*>(parent)) {
         const int index = parentSplitter->indexOf(oldNode);
+        if (index < 0) {
+            return;
+        }
+        parentSplitter->replaceWidget(index, newNode);
         oldNode->setParent(nullptr);
-        newNode->setParent(parentSplitter);
-        parentSplitter->insertWidget(index, newNode);
         return;
     }
 
@@ -516,6 +517,8 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
             const int index = parentSplitter->indexOf(pane);
             parentSplitter->insertWidget(index + 1, sibling);
             parentSplitter->setChildrenCollapsible(false);
+            parentSplitter->setStretchFactor(index, 1);
+            parentSplitter->setStretchFactor(index + 1, 1);
 
             QList<int> sizes = parentSplitter->sizes();
             if (index >= 0 && index < sizes.size()) {
@@ -571,10 +574,7 @@ void MainWindow::closePane(TerminalPane* pane) {
     QList<TerminalPane*> tabPanes;
     collectPanes(info->rootNode, tabPanes);
     if (tabPanes.size() <= 1) {
-        const int tabIndex = m_tabWidget->indexOf(tabPage);
-        if (m_tabWidget->count() > 1) {
-            closeTabByIndex(tabIndex);
-        }
+        statusBar()->showMessage(QStringLiteral("A tab must contain at least one terminal."), 2500);
         return;
     }
 
@@ -644,6 +644,7 @@ void MainWindow::closeTabByIndex(int index) {
         return;
     }
     if (m_tabWidget->count() <= 1) {
+        close();
         return;
     }
 
