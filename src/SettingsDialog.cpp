@@ -213,7 +213,7 @@ void SettingsDialog::onVerifyLlmSettings() {
         endpoint = joinUrl(cfg.llmBaseUrl, QStringLiteral("models"));
     }
 
-    QNetworkRequest request(QUrl(endpoint));
+    QNetworkRequest request{QUrl(endpoint)};
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     if (cfg.llmProvider == QStringLiteral("openai") && !cfg.llmApiKey.trimmed().isEmpty()) {
         request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(cfg.llmApiKey.trimmed()).toUtf8());

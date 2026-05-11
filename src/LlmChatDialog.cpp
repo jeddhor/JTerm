@@ -161,7 +161,7 @@ void LlmChatDialog::beginRequest() {
         payload.insert(QStringLiteral("stream"), true);
     }
 
-    QNetworkRequest request(QUrl(endpoint));
+    QNetworkRequest request{QUrl(endpoint)};
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     if (m_settings.llmProvider.trimmed().toLower() == QStringLiteral("openai") && !m_settings.llmApiKey.trimmed().isEmpty()) {
         request.setRawHeader("Authorization", QStringLiteral("Bearer %1").arg(m_settings.llmApiKey.trimmed()).toUtf8());
