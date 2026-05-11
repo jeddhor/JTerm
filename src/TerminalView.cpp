@@ -28,8 +28,8 @@ TerminalView::TerminalView(QWidget* parent)
 
 QStringList TerminalView::availableColorSchemes() {
     QTermWidget probe(0, nullptr);
-    QStringList schemes;
-    if (QMetaObject::invokeMethod(&probe, "availableColorSchemes", Q_RETURN_ARG(QStringList, schemes)) && !schemes.isEmpty()) {
+    const QStringList schemes = probe.availableColorSchemes();
+    if (!schemes.isEmpty()) {
         return schemes;
     }
 
@@ -68,13 +68,9 @@ void TerminalView::sendCommand(const QString& command) {
 
 void TerminalView::setTerminalColorScheme(const QString& schemeName) {
     const QString normalized = schemeName.trimmed().isEmpty() ? QStringLiteral("WhiteOnBlack") : schemeName.trimmed();
-    m_colorSchemeName = normalized;
-
-    const bool applied = QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, normalized));
-    if (!applied) {
-        m_colorSchemeName = QStringLiteral("WhiteOnBlack");
-        QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, m_colorSchemeName));
-    }
+    const QStringList available = availableColorSchemes();
+    m_colorSchemeName = available.contains(normalized) ? normalized : QStringLiteral("WhiteOnBlack");
+    m_terminal->setColorScheme(m_colorSchemeName);
 }
 
 QString TerminalView::terminalColorScheme() const {
