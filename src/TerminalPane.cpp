@@ -16,6 +16,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     , m_paneId(paneId)
     , m_title(QStringLiteral("Pane ") + paneId)
     , m_titleLabel(new QLabel(this))
+    , m_startupIndicatorLabel(new QLabel(this))
     , m_titleBar(new QWidget(this))
     , m_moveToTabButton(new QToolButton(this))
     , m_terminalView(new TerminalView(this)) {
@@ -33,11 +34,16 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
 
+    m_startupIndicatorLabel->setText(QStringLiteral("⚡"));
+    m_startupIndicatorLabel->setToolTip(QStringLiteral("This pane has startup commands configured"));
+    m_startupIndicatorLabel->setVisible(false);
+
     m_moveToTabButton->setText(QStringLiteral("↗"));
     m_moveToTabButton->setAutoRaise(true);
     m_moveToTabButton->setToolTip(QStringLiteral("Move this pane to a new tab"));
 
     titleLayout->addWidget(m_titleLabel, 1);
+    titleLayout->addWidget(m_startupIndicatorLabel, 0);
     titleLayout->addWidget(m_moveToTabButton, 0);
 
     m_terminalView->setShell(shellPath);
@@ -175,5 +181,6 @@ void TerminalPane::updateHeader() {
     const QString tooltip = m_title + QStringLiteral(" (id: ") + m_paneId + QStringLiteral(")");
     m_titleLabel->setToolTip(tooltip);
     m_titleBar->setToolTip(tooltip);
+    m_startupIndicatorLabel->setVisible(!m_startupScript.trimmed().isEmpty());
     m_moveToTabButton->setToolTip(QStringLiteral("Move ") + tooltip + QStringLiteral(" to a new tab"));
 }

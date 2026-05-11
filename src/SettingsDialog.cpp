@@ -37,6 +37,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     , m_network(new QNetworkAccessManager(this)) {
     m_confirmExitCheck = new QCheckBox(QStringLiteral("Confirm before exiting when multiple tabs or panes are open"), this);
     m_warnStartupScriptsCheck = new QCheckBox(QStringLiteral("Warn when loading layouts that contain startup commands"), this);
+    m_autoSaveRestoreLayoutCheck = new QCheckBox(QStringLiteral("Automatically save layout on exit and restore it on startup"), this);
     setWindowTitle(QStringLiteral("Settings"));
     resize(700, 520);
 
@@ -71,8 +72,10 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     generalLayout->addLayout(formLayout);
     m_confirmExitCheck->setChecked(initialSettings.confirmOnMultiPaneExit);
     m_warnStartupScriptsCheck->setChecked(initialSettings.warnOnLayoutStartupScripts);
+    m_autoSaveRestoreLayoutCheck->setChecked(initialSettings.autoSaveRestoreLayout);
     generalLayout->addWidget(m_confirmExitCheck);
     generalLayout->addWidget(m_warnStartupScriptsCheck);
+    generalLayout->addWidget(m_autoSaveRestoreLayoutCheck);
     generalLayout->addStretch(1);
 
     auto* llmTab = new QWidget(this);
@@ -164,6 +167,7 @@ AppSettings SettingsDialog::collectSettingsFromUi() const {
     result.maxPanes = m_maxPanesSpin->value();
     result.confirmOnMultiPaneExit = m_confirmExitCheck->isChecked();
     result.warnOnLayoutStartupScripts = m_warnStartupScriptsCheck->isChecked();
+    result.autoSaveRestoreLayout = m_autoSaveRestoreLayoutCheck->isChecked();
 
     result.llmProvider = m_llmProviderCombo->currentData().toString().trimmed().toLower();
     result.llmBaseUrl = m_llmBaseUrlEdit->text().trimmed();

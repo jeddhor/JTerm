@@ -8,6 +8,7 @@ struct AppSettings {
     int maxPanes = 32;
     bool confirmOnMultiPaneExit = true;
     bool warnOnLayoutStartupScripts = true;
+    bool autoSaveRestoreLayout = false;
 
     QString llmProvider;
     QString llmBaseUrl;

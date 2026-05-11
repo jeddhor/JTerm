@@ -49,6 +49,7 @@ private:
     QString m_startupScript;
 
     QLabel* m_titleLabel;
+    QLabel* m_startupIndicatorLabel;
     QWidget* m_titleBar;
     QToolButton* m_moveToTabButton;
     TerminalView* m_terminalView;

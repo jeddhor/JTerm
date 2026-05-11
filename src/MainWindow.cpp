@@ -15,6 +15,7 @@
 #include <QByteArray>
 #include <QCloseEvent>
 #include <QDesktopServices>
+#include <QDir>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -28,6 +29,7 @@
 #include <QMessageBox>
 #include <QPixmap>
 #include <QStatusBar>
+#include <QStandardPaths>
 #include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
@@ -51,7 +53,9 @@ MainWindow::MainWindow(QWidget* parent)
     initializeUi();
     createMenus();
     refreshLlmActionState();
-    createNewTab();
+    if (!tryRestoreAutoSavedLayout()) {
+        createNewTab();
+    }
     QTimer::singleShot(0, this, [this]() {
         focusActivePaneTerminal();
     });
@@ -75,6 +79,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     }
 
     if (!m_settings.confirmOnMultiPaneExit) {
+        saveAutoLayoutSnapshot();
         event->accept();
         return;
     }
@@ -82,6 +87,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     const bool hasMultipleTabs = m_tabWidget && m_tabWidget->count() > 1;
     const bool hasMultiplePanes = panes.size() > 1;
     if (!hasMultipleTabs && !hasMultiplePanes) {
+        saveAutoLayoutSnapshot();
         event->accept();
         return;
     }
@@ -94,10 +100,54 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         QMessageBox::No);
 
     if (button == QMessageBox::Yes) {
+        saveAutoLayoutSnapshot();
         event->accept();
     } else {
         event->ignore();
     }
+}
+
+QString MainWindow::autoSavedLayoutPath() const {
+    QString baseDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (baseDir.trimmed().isEmpty()) {
+        baseDir = QDir::homePath() + QStringLiteral("/.config");
+    }
+
+    QDir dir(baseDir);
+    dir.mkpath(QStringLiteral("jterm"));
+    return dir.filePath(QStringLiteral("jterm/layout-autosave.json"));
+}
+
+bool MainWindow::tryRestoreAutoSavedLayout() {
+    if (!m_settings.autoSaveRestoreLayout) {
+        return false;
+    }
+
+    QFile file(autoSavedLayoutPath());
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+
+    const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    if (!doc.isObject()) {
+        return false;
+    }
+
+    QString error;
+    return importLayoutObject(doc.object(), &error);
+}
+
+void MainWindow::saveAutoLayoutSnapshot() {
+    if (!m_settings.autoSaveRestoreLayout || m_tabWidget->count() <= 0) {
+        return;
+    }
+
+    QFile file(autoSavedLayoutPath());
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        return;
+    }
+
+    file.write(QJsonDocument(exportLayoutObject()).toJson(QJsonDocument::Indented));
 }
 
 bool MainWindow::loadLayoutFromPath(const QString& path, QString* errorMessage) {

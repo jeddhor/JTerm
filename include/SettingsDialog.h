@@ -39,6 +39,7 @@ private:
     QSpinBox* m_maxPanesSpin;
     QCheckBox* m_confirmExitCheck;
     QCheckBox* m_warnStartupScriptsCheck;
+    QCheckBox* m_autoSaveRestoreLayoutCheck;
 
     QComboBox* m_llmProviderCombo;
     QLineEdit* m_llmBaseUrlEdit;

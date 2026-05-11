@@ -81,6 +81,9 @@ private:
     bool nodeContainsStartupScripts(const QJsonObject& nodeObject) const;
     bool layoutContainsStartupScripts(const QJsonObject& layoutObject) const;
     bool confirmLoadLayoutWithStartupScripts() const;
+    QString autoSavedLayoutPath() const;
+    bool tryRestoreAutoSavedLayout();
+    void saveAutoLayoutSnapshot();
 
     void collectPanes(QWidget* node, QList<TerminalPane*>& outPanes) const;
     void collectAllPanes(QList<TerminalPane*>& outPanes) const;
