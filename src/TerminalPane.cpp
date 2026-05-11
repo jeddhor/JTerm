@@ -33,7 +33,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
 
-    m_moveToTabButton->setText(QStringLiteral("Tab"));
+    m_moveToTabButton->setText(QStringLiteral("↗"));
     m_moveToTabButton->setAutoRaise(true);
     m_moveToTabButton->setToolTip(QStringLiteral("Move this pane to a new tab"));
 
@@ -143,6 +143,10 @@ void TerminalPane::runStartupScript() {
 
 bool TerminalPane::hasRunningProcess() const {
     return m_terminalView && m_terminalView->hasRunningForegroundProcess();
+}
+
+void TerminalPane::setMoveToTabVisible(bool visible) {
+    m_moveToTabButton->setVisible(visible);
 }
 
 TerminalView* TerminalPane::terminalView() const {

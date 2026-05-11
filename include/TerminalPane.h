@@ -19,6 +19,7 @@ public:
     void setStartupScript(const QString& script);
     void runStartupScript();
     bool hasRunningProcess() const;
+    void setMoveToTabVisible(bool visible);
 
     TerminalView* terminalView() const;
 

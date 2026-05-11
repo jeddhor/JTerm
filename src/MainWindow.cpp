@@ -32,6 +32,7 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QtGlobal>
 #include <QUrl>
@@ -45,7 +46,8 @@ MainWindow::MainWindow(QWidget* parent)
     , m_settings(SettingsStore::load())
     , m_commandServer(new CommandServer(this))
     , m_askLlmAction(nullptr)
-    , m_llmChatDialog(nullptr) {
+    , m_llmChatDialog(nullptr)
+    , m_newTabButton(nullptr) {
     initializeUi();
     createMenus();
     refreshLlmActionState();
@@ -388,6 +390,14 @@ void MainWindow::initializeUi() {
     m_tabWidget->setMovable(true);
     m_tabWidget->setTabsClosable(true);
 
+    m_newTabButton = new QToolButton(m_tabWidget);
+    m_newTabButton->setText(QStringLiteral("+"));
+    m_newTabButton->setAutoRaise(true);
+    m_newTabButton->setToolTip(QStringLiteral("Create new tab"));
+    m_newTabButton->setCursor(Qt::PointingHandCursor);
+    connect(m_newTabButton, &QToolButton::clicked, this, &MainWindow::createNewTab);
+    m_tabWidget->setCornerWidget(m_newTabButton, Qt::TopRightCorner);
+
     QTabBar* tabBar = m_tabWidget->tabBar();
     tabBar->setContextMenuPolicy(Qt::CustomContextMenu);
 
@@ -487,6 +497,17 @@ void MainWindow::refreshLlmActionState() {
     }
 }
 
+void MainWindow::refreshMoveToTabButtonVisibility() {
+    for (auto it = m_tabInfos.begin(); it != m_tabInfos.end(); ++it) {
+        QList<TerminalPane*> panes;
+        collectPanes(it.value().rootNode, panes);
+        const bool showMoveControl = panes.size() > 1;
+        for (TerminalPane* pane : panes) {
+            pane->setMoveToTabVisible(showMoveControl);
+        }
+    }
+}
+
 QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode) {
     QWidget* page = new QWidget(this);
     auto* pageLayout = new QVBoxLayout(page);
@@ -509,6 +530,7 @@ QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle
 
     const int index = m_tabWidget->addTab(page, info.title);
     refreshTabVisual(index);
+    refreshMoveToTabButtonVisibility();
     return page;
 }
 
@@ -646,6 +668,7 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
                 parentSplitter->setSizes(sizes);
             }
             setActivePane(sibling);
+            refreshMoveToTabButtonVisibility();
             return;
         }
 
@@ -691,6 +714,7 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         newSplitter->updateGeometry();
 
         setActivePane(sibling);
+        refreshMoveToTabButtonVisibility();
         return;
     }
 
@@ -716,6 +740,7 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         }
 
         setActivePane(sibling);
+        refreshMoveToTabButtonVisibility();
         return;
     }
 }
@@ -797,6 +822,7 @@ void MainWindow::closePane(TerminalPane* pane) {
     if (!refreshed.isEmpty()) {
         setActivePane(refreshed.first());
     }
+    refreshMoveToTabButtonVisibility();
 }
 
 void MainWindow::renamePane(TerminalPane* pane) {
@@ -812,6 +838,7 @@ void MainWindow::renamePane(TerminalPane* pane) {
 
     pane->setTitle(newTitle);
     setActivePane(pane);
+    refreshMoveToTabButtonVisibility();
 }
 
 void MainWindow::movePaneToNewTab(TerminalPane* pane) {
@@ -950,6 +977,7 @@ void MainWindow::closeTabByIndex(int index) {
         createNewTab();
     }
     syncActivePaneToCurrentTab();
+    refreshMoveToTabButtonVisibility();
 }
 
 void MainWindow::renameTabByIndex(int index) {
@@ -1033,6 +1061,7 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
         m_tabWidget->setCurrentIndex(0);
         syncActivePaneToCurrentTab();
         applyTheme(QString());
+        refreshMoveToTabButtonVisibility();
         return true;
     }
 
@@ -1094,12 +1123,14 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
             setActivePane(focusPane);
             focusPane->terminalView()->focusTerminal();
             applyTheme(QString());
+            refreshMoveToTabButtonVisibility();
             return true;
         }
     }
 
     syncActivePaneToCurrentTab();
     applyTheme(QString());
+    refreshMoveToTabButtonVisibility();
     focusActivePaneTerminal();
     return true;
 }

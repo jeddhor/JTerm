@@ -12,6 +12,7 @@ class QAction;
 class LlmChatDialog;
 class QTabWidget;
 class TerminalPane;
+class QToolButton;
 class QWidget;
 
 class MainWindow : public QMainWindow {
@@ -98,6 +99,7 @@ private:
     void refreshTabVisual(int index);
     void refreshLlmActionState();
     void focusActivePaneTerminal();
+    void refreshMoveToTabButtonVisibility();
 
     QTabWidget* m_tabWidget;
     QHash<QWidget*, TabInfo> m_tabInfos;
@@ -111,4 +113,5 @@ private:
     CommandServer* m_commandServer;
     QAction* m_askLlmAction;
     LlmChatDialog* m_llmChatDialog;
+    QToolButton* m_newTabButton;
 };
