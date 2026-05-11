@@ -8,6 +8,14 @@ struct AppSettings {
     int maxPanes = 32;
     bool confirmOnMultiPaneExit = true;
     bool warnOnLayoutStartupScripts = true;
+
+    QString llmProvider;
+    QString llmBaseUrl;
+    QString llmModel;
+    QString llmApiKey;
+    QString llmSystemPrompt;
+
+    bool hasLlmConfiguration() const;
 };
 
 namespace SettingsStore {

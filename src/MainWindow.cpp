@@ -3,6 +3,7 @@
 #include "AppSettings.h"
 #include "CommandServer.h"
 #include "LayoutEditorDialog.h"
+#include "LlmChatDialog.h"
 #include "SnapSplitter.h"
 #include "SettingsDialog.h"
 #include "StartupScriptDialog.h"
@@ -41,9 +42,12 @@ MainWindow::MainWindow(QWidget* parent)
     , m_nextPaneCounter(1)
     , m_nextTabCounter(1)
     , m_settings(SettingsStore::load())
-    , m_commandServer(new CommandServer(this)) {
+    , m_commandServer(new CommandServer(this))
+    , m_askLlmAction(nullptr)
+    , m_llmChatDialog(nullptr) {
     initializeUi();
     createMenus();
+    refreshLlmActionState();
     createNewTab();
 
     applyTheme(QString());
@@ -243,6 +247,32 @@ void MainWindow::showSettingsDialog() {
 
     SettingsStore::save(m_settings);
     applyTheme(QString());
+    refreshLlmActionState();
+
+    if (m_llmChatDialog) {
+        m_llmChatDialog->setSettings(m_settings);
+    }
+}
+
+void MainWindow::showLlmChatDialog() {
+    if (!m_settings.hasLlmConfiguration()) {
+        QMessageBox::information(this, QStringLiteral("LLM Not Configured"), QStringLiteral("Open Settings -> LLM and configure provider, base URL, and model first."));
+        return;
+    }
+
+    if (!m_llmChatDialog) {
+        m_llmChatDialog = new LlmChatDialog(m_settings, this);
+        m_llmChatDialog->setAttribute(Qt::WA_DeleteOnClose, true);
+        connect(m_llmChatDialog, &QObject::destroyed, this, [this]() {
+            m_llmChatDialog = nullptr;
+        });
+    } else {
+        m_llmChatDialog->setSettings(m_settings);
+    }
+
+    m_llmChatDialog->show();
+    m_llmChatDialog->raise();
+    m_llmChatDialog->activateWindow();
 }
 
 void MainWindow::openProjectGithubPage() {
@@ -420,10 +450,29 @@ void MainWindow::createMenus() {
     auto* settingsMenu = menuBar()->addMenu(QStringLiteral("&Settings"));
     settingsMenu->addAction(QStringLiteral("Preferences..."), QKeySequence(QStringLiteral("Ctrl+,")), this, &MainWindow::showSettingsDialog);
 
+    auto* llmMenu = menuBar()->addMenu(QStringLiteral("&LLM"));
+    m_askLlmAction = llmMenu->addAction(QStringLiteral("Ask the LLM..."), this, &MainWindow::showLlmChatDialog);
+    m_askLlmAction->setEnabled(false);
+    m_askLlmAction->setToolTip(QStringLiteral("Configure LLM settings first."));
+
     auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
     helpMenu->addAction(QStringLiteral("Project on GitHub"), this, &MainWindow::openProjectGithubPage);
     helpMenu->addSeparator();
     helpMenu->addAction(QStringLiteral("About JTerm"), this, &MainWindow::showAboutDialog);
+}
+
+void MainWindow::refreshLlmActionState() {
+    if (!m_askLlmAction) {
+        return;
+    }
+
+    const bool enabled = m_settings.hasLlmConfiguration();
+    m_askLlmAction->setEnabled(enabled);
+    if (enabled) {
+        m_askLlmAction->setToolTip(QStringLiteral("Open the modeless LLM chat helper."));
+    } else {
+        m_askLlmAction->setToolTip(QStringLiteral("Disabled until LLM settings are configured and saved."));
+    }
 }
 
 QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode) {

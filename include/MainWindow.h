@@ -8,6 +8,8 @@
 #include <QSet>
 
 class CommandServer;
+class QAction;
+class LlmChatDialog;
 class QTabWidget;
 class TerminalPane;
 class QWidget;
@@ -35,6 +37,7 @@ private slots:
     void loadLayoutFromFile();
     void openProjectGithubPage();
     void showAboutDialog();
+    void showLlmChatDialog();
     void showSettingsDialog();
     void applyTheme(const QString& themeName);
     void handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command);
@@ -92,6 +95,7 @@ private:
     void wirePaneSignals(TerminalPane* pane);
     void syncActivePaneToCurrentTab();
     void refreshTabVisual(int index);
+    void refreshLlmActionState();
 
     QTabWidget* m_tabWidget;
     QHash<QWidget*, TabInfo> m_tabInfos;
@@ -103,4 +107,6 @@ private:
     QSet<QString> m_usedTabIds;
     AppSettings m_settings;
     CommandServer* m_commandServer;
+    QAction* m_askLlmAction;
+    LlmChatDialog* m_llmChatDialog;
 };
