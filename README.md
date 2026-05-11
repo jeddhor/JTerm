@@ -2,7 +2,7 @@
 
 ![JTerm Logo](assets/JTerm_logo.png)
 
-JTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a real PTY/TTY backend via QTermWidget.
+JTerm (Jason's Terminal) is a Linux-first, Qt6-based split-pane terminal emulator that uses a real PTY/TTY backend via QTermWidget.
 
 ## Features
 

@@ -3,25 +3,26 @@
 #include "TerminalView.h"
 
 #include <QAction>
+#include <QEvent>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QVBoxLayout>
 
 TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWidget* parent)
     : QWidget(parent)
     , m_paneId(paneId)
     , m_title(QStringLiteral("Pane ") + paneId)
-    , m_idLabel(new QLabel(this))
     , m_titleLabel(new QLabel(this))
+    , m_titleBar(new QWidget(this))
     , m_terminalView(new TerminalView(this)) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(6, 6, 6, 6);
     rootLayout->setSpacing(4);
 
-    auto* titleBar = new QWidget(this);
-    auto* titleLayout = new QHBoxLayout(titleBar);
+    auto* titleLayout = new QHBoxLayout(m_titleBar);
     titleLayout->setContentsMargins(8, 6, 8, 6);
     titleLayout->setSpacing(8);
 
@@ -30,17 +31,16 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
 
-    m_idLabel->setMinimumWidth(60);
-    m_idLabel->setAlignment(Qt::AlignCenter);
-
     titleLayout->addWidget(m_titleLabel, 1);
-    titleLayout->addWidget(m_idLabel, 0);
 
     m_terminalView->setShell(shellPath);
     m_terminalView->startShell();
 
-    rootLayout->addWidget(titleBar, 0);
+    rootLayout->addWidget(m_titleBar, 0);
     rootLayout->addWidget(m_terminalView, 1);
+
+    m_titleBar->installEventFilter(this);
+    m_titleLabel->installEventFilter(this);
 
     setContextMenuPolicy(Qt::CustomContextMenu);
     m_terminalView->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -139,7 +139,22 @@ void TerminalPane::onInnerActivated() {
     emit activated(this);
 }
 
+bool TerminalPane::eventFilter(QObject* watched, QEvent* event) {
+    if ((watched == m_titleBar || watched == m_titleLabel) && event->type() == QEvent::MouseButtonDblClick) {
+        auto* mouseEvent = static_cast<QMouseEvent*>(event);
+        if (mouseEvent->button() == Qt::LeftButton) {
+            emit activated(this);
+            emit renameRequested(this);
+            return true;
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
+}
+
 void TerminalPane::updateHeader() {
     m_titleLabel->setText(m_title);
-    m_idLabel->setText(QStringLiteral("#") + m_paneId);
+    const QString tooltip = m_title + QStringLiteral(" (id: ") + m_paneId + QStringLiteral(")");
+    m_titleLabel->setToolTip(tooltip);
+    m_titleBar->setToolTip(tooltip);
 }

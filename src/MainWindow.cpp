@@ -234,7 +234,7 @@ void MainWindow::showSettingsDialog() {
 }
 
 void MainWindow::openProjectGithubPage() {
-    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/jeddhor/SplitTerm")));
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/jeddhor/JTerm")));
 }
 
 void MainWindow::showAboutDialog() {

@@ -35,6 +35,9 @@ signals:
 private slots:
     void onInnerActivated();
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void updateHeader();
 
@@ -42,7 +45,7 @@ private:
     QString m_title;
     QString m_startupScript;
 
-    QLabel* m_idLabel;
     QLabel* m_titleLabel;
+    QWidget* m_titleBar;
     TerminalView* m_terminalView;
 };
