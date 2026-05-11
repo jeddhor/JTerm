@@ -348,41 +348,41 @@ void MainWindow::initializeUi() {
 
 void MainWindow::createMenus() {
     auto* fileMenu = menuBar()->addMenu(QStringLiteral("&File"));
-    fileMenu->addAction(QStringLiteral("Save Layout..."), this, &MainWindow::saveLayoutToFile, QKeySequence(QStringLiteral("Ctrl+S")));
-    fileMenu->addAction(QStringLiteral("Load Layout..."), this, &MainWindow::loadLayoutFromFile, QKeySequence(QStringLiteral("Ctrl+O")));
+    fileMenu->addAction(QStringLiteral("Save Layout..."), QKeySequence(QStringLiteral("Ctrl+S")), this, &MainWindow::saveLayoutToFile);
+    fileMenu->addAction(QStringLiteral("Load Layout..."), QKeySequence(QStringLiteral("Ctrl+O")), this, &MainWindow::loadLayoutFromFile);
     fileMenu->addSeparator();
-    fileMenu->addAction(QStringLiteral("Exit"), this, &QWidget::close, QKeySequence(QStringLiteral("Ctrl+Q")));
+    fileMenu->addAction(QStringLiteral("Exit"), QKeySequence(QStringLiteral("Ctrl+Q")), this, &QWidget::close);
 
     auto* editMenu = menuBar()->addMenu(QStringLiteral("&Edit"));
-    editMenu->addAction(QStringLiteral("Copy"), this, [this]() {
+    editMenu->addAction(QStringLiteral("Copy"), QKeySequence::Copy, this, [this]() {
         if (m_activePane) {
             m_activePane->terminalView()->copy();
         }
-    }, QKeySequence::Copy);
-    editMenu->addAction(QStringLiteral("Paste"), this, [this]() {
+    });
+    editMenu->addAction(QStringLiteral("Paste"), QKeySequence::Paste, this, [this]() {
         if (m_activePane) {
             m_activePane->terminalView()->paste();
         }
-    }, QKeySequence::Paste);
-    editMenu->addAction(QStringLiteral("Select All"), this, [this]() {
+    });
+    editMenu->addAction(QStringLiteral("Select All"), QKeySequence::SelectAll, this, [this]() {
         if (m_activePane) {
             m_activePane->terminalView()->selectAll();
         }
-    }, QKeySequence::SelectAll);
+    });
 
     auto* paneMenu = menuBar()->addMenu(QStringLiteral("&Pane"));
-    paneMenu->addAction(QStringLiteral("Split Horizontally"), this, &MainWindow::splitActivePaneHorizontal, QKeySequence(QStringLiteral("Ctrl+Shift+H")));
-    paneMenu->addAction(QStringLiteral("Split Vertically"), this, &MainWindow::splitActivePaneVertical, QKeySequence(QStringLiteral("Ctrl+Shift+V")));
-    paneMenu->addAction(QStringLiteral("Rename Pane..."), this, &MainWindow::renameActivePane, QKeySequence(QStringLiteral("Ctrl+Shift+R")));
-    paneMenu->addAction(QStringLiteral("Close Terminal"), this, &MainWindow::closeActivePane, QKeySequence(QStringLiteral("Ctrl+Shift+W")));
+    paneMenu->addAction(QStringLiteral("Split Horizontally"), QKeySequence(QStringLiteral("Ctrl+Shift+H")), this, &MainWindow::splitActivePaneHorizontal);
+    paneMenu->addAction(QStringLiteral("Split Vertically"), QKeySequence(QStringLiteral("Ctrl+Shift+V")), this, &MainWindow::splitActivePaneVertical);
+    paneMenu->addAction(QStringLiteral("Rename Pane..."), QKeySequence(QStringLiteral("Ctrl+Shift+R")), this, &MainWindow::renameActivePane);
+    paneMenu->addAction(QStringLiteral("Close Terminal"), QKeySequence(QStringLiteral("Ctrl+Shift+W")), this, &MainWindow::closeActivePane);
 
     auto* tabMenu = menuBar()->addMenu(QStringLiteral("&Tab"));
-    tabMenu->addAction(QStringLiteral("New Tab"), this, &MainWindow::createNewTab, QKeySequence(QStringLiteral("Ctrl+T")));
-    tabMenu->addAction(QStringLiteral("Rename Tab..."), this, &MainWindow::renameCurrentTab, QKeySequence(QStringLiteral("Ctrl+Alt+R")));
-    tabMenu->addAction(QStringLiteral("Close Tab"), this, &MainWindow::closeCurrentTab, QKeySequence(QStringLiteral("Ctrl+W")));
+    tabMenu->addAction(QStringLiteral("New Tab"), QKeySequence(QStringLiteral("Ctrl+T")), this, &MainWindow::createNewTab);
+    tabMenu->addAction(QStringLiteral("Rename Tab..."), QKeySequence(QStringLiteral("Ctrl+Alt+R")), this, &MainWindow::renameCurrentTab);
+    tabMenu->addAction(QStringLiteral("Close Tab"), QKeySequence(QStringLiteral("Ctrl+W")), this, &MainWindow::closeCurrentTab);
 
     auto* settingsMenu = menuBar()->addMenu(QStringLiteral("&Settings"));
-    settingsMenu->addAction(QStringLiteral("Preferences..."), this, &MainWindow::showSettingsDialog, QKeySequence(QStringLiteral("Ctrl+,")));
+    settingsMenu->addAction(QStringLiteral("Preferences..."), QKeySequence(QStringLiteral("Ctrl+,")), this, &MainWindow::showSettingsDialog);
 }
 
 QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode) {
