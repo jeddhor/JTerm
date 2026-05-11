@@ -127,6 +127,10 @@ void TerminalView::selectAll() {
     QCoreApplication::sendEvent(m_terminal, &release);
 }
 
+void TerminalView::focusTerminal() {
+    m_terminal->setFocus(Qt::OtherFocusReason);
+}
+
 bool TerminalView::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_terminal && event->type() == QEvent::MouseButtonPress) {
         auto* mouseEvent = static_cast<QMouseEvent*>(event);

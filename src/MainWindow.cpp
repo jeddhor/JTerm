@@ -31,6 +31,7 @@
 #include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QtGlobal>
 #include <QUrl>
@@ -49,6 +50,9 @@ MainWindow::MainWindow(QWidget* parent)
     createMenus();
     refreshLlmActionState();
     createNewTab();
+    QTimer::singleShot(0, this, [this]() {
+        focusActivePaneTerminal();
+    });
 
     applyTheme(QString());
 
@@ -275,6 +279,13 @@ void MainWindow::showLlmChatDialog() {
     m_llmChatDialog->activateWindow();
 }
 
+void MainWindow::focusActivePaneTerminal() {
+    if (!m_activePane || !m_activePane->terminalView()) {
+        return;
+    }
+    m_activePane->terminalView()->focusTerminal();
+}
+
 void MainWindow::openProjectGithubPage() {
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/jeddhor/JTerm")));
 }
@@ -293,7 +304,7 @@ void MainWindow::showAboutDialog() {
 
     QPixmap logo(logoPath);
     if (!logo.isNull()) {
-        box.setIconPixmap(logo.scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        box.setIconPixmap(logo.scaled(320, 320, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
         box.setIcon(QMessageBox::Information);
     }
@@ -452,6 +463,7 @@ void MainWindow::createMenus() {
 
     auto* llmMenu = menuBar()->addMenu(QStringLiteral("&LLM"));
     m_askLlmAction = llmMenu->addAction(QStringLiteral("Ask the LLM..."), this, &MainWindow::showLlmChatDialog);
+    m_askLlmAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+L")));
     m_askLlmAction->setEnabled(false);
     m_askLlmAction->setToolTip(QStringLiteral("Configure LLM settings first."));
 
@@ -802,6 +814,90 @@ void MainWindow::renamePane(TerminalPane* pane) {
     setActivePane(pane);
 }
 
+void MainWindow::movePaneToNewTab(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+
+    QWidget* sourcePage = nullptr;
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QWidget* candidate = m_tabWidget->widget(i);
+        if (candidate == pane || candidate->isAncestorOf(pane)) {
+            sourcePage = candidate;
+            break;
+        }
+    }
+    if (!sourcePage) {
+        return;
+    }
+
+    TabInfo* sourceInfo = tabInfoForPage(sourcePage);
+    if (!sourceInfo || !sourceInfo->rootNode) {
+        return;
+    }
+
+    if (pane == sourceInfo->rootNode) {
+        sourceInfo->rootNode = nullptr;
+        pane->setParent(nullptr);
+    } else {
+        auto* parentSplitter = qobject_cast<QSplitter*>(pane->parentWidget());
+        if (!parentSplitter) {
+            return;
+        }
+
+        if (parentSplitter->count() > 2) {
+            pane->setParent(nullptr);
+        } else {
+            QWidget* survivor = nullptr;
+            for (int i = 0; i < parentSplitter->count(); ++i) {
+                QWidget* child = parentSplitter->widget(i);
+                if (child != pane) {
+                    survivor = child;
+                    break;
+                }
+            }
+            if (!survivor) {
+                return;
+            }
+
+            QWidget* grandParent = parentSplitter->parentWidget();
+            pane->setParent(nullptr);
+
+            if (auto* grandSplitter = qobject_cast<QSplitter*>(grandParent)) {
+                const int index = grandSplitter->indexOf(parentSplitter);
+                survivor->setParent(grandSplitter);
+                grandSplitter->insertWidget(index, survivor);
+                parentSplitter->deleteLater();
+            } else if (grandParent == sourcePage) {
+                sourcePage->layout()->removeWidget(parentSplitter);
+                survivor->setParent(sourcePage);
+                sourcePage->layout()->addWidget(survivor);
+                sourceInfo->rootNode = survivor;
+                parentSplitter->deleteLater();
+            }
+        }
+    }
+
+    const QString newTabId = nextTabId();
+    const QString newTabTitle = pane->title().trimmed().isEmpty() ? (QStringLiteral("Tab ") + newTabId) : pane->title().trimmed();
+    QWidget* newPage = createTabPage(newTabId, newTabTitle, pane);
+    m_tabWidget->setCurrentWidget(newPage);
+
+    if (!sourceInfo->rootNode) {
+        if (m_activePane && (sourcePage == m_activePane || sourcePage->isAncestorOf(m_activePane))) {
+            m_activePane = nullptr;
+        }
+        const int sourceIndex = m_tabWidget->indexOf(sourcePage);
+        m_tabInfos.remove(sourcePage);
+        if (sourceIndex >= 0) {
+            m_tabWidget->removeTab(sourceIndex);
+        }
+        sourcePage->deleteLater();
+    }
+
+    setActivePane(pane);
+}
+
 void MainWindow::editPaneStartupScript(TerminalPane* pane) {
     if (!pane) {
         return;
@@ -901,6 +997,9 @@ QJsonObject MainWindow::exportLayoutObject() const {
     if (currentInfo) {
         rootObject.insert(QStringLiteral("currentTabId"), currentInfo->id);
     }
+    if (m_activePane) {
+        rootObject.insert(QStringLiteral("currentPaneId"), m_activePane->paneId());
+    }
 
     return rootObject;
 }
@@ -982,8 +1081,26 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
         }
     }
 
+    const QString currentPaneId = rootObject.value(QStringLiteral("currentPaneId")).toString().trimmed();
+    if (!currentPaneId.isEmpty()) {
+        if (TerminalPane* focusPane = findPaneById(currentPaneId)) {
+            for (int i = 0; i < m_tabWidget->count(); ++i) {
+                QWidget* page = m_tabWidget->widget(i);
+                if (page == focusPane || page->isAncestorOf(focusPane)) {
+                    m_tabWidget->setCurrentIndex(i);
+                    break;
+                }
+            }
+            setActivePane(focusPane);
+            focusPane->terminalView()->focusTerminal();
+            applyTheme(QString());
+            return true;
+        }
+    }
+
     syncActivePaneToCurrentTab();
     applyTheme(QString());
+    focusActivePaneTerminal();
     return true;
 }
 
@@ -1309,6 +1426,7 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::activated, this, &MainWindow::setActivePane);
     connect(pane, &TerminalPane::closeRequested, this, &MainWindow::closePane);
     connect(pane, &TerminalPane::renameRequested, this, &MainWindow::renamePane);
+    connect(pane, &TerminalPane::moveToNewTabRequested, this, &MainWindow::movePaneToNewTab);
     connect(pane, &TerminalPane::startupScriptRequested, this, &MainWindow::editPaneStartupScript);
     connect(pane, &TerminalPane::preferencesRequested, this, [this](TerminalPane* sourcePane) {
         if (sourcePane) {

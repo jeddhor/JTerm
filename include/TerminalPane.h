@@ -4,6 +4,7 @@
 
 class QLabel;
 class TerminalView;
+class QToolButton;
 
 class TerminalPane : public QWidget {
     Q_OBJECT
@@ -31,6 +32,7 @@ signals:
     void copyRequested(TerminalPane* pane);
     void pasteRequested(TerminalPane* pane);
     void selectAllRequested(TerminalPane* pane);
+    void moveToNewTabRequested(TerminalPane* pane);
 
 private slots:
     void onInnerActivated();
@@ -47,5 +49,6 @@ private:
 
     QLabel* m_titleLabel;
     QWidget* m_titleBar;
+    QToolButton* m_moveToTabButton;
     TerminalView* m_terminalView;
 };

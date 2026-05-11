@@ -30,6 +30,15 @@ JTerm (Jason's Terminal) is a Linux-first, Qt6-based split-pane terminal emulato
   - Terminal color scheme (QTermWidget built-in schemes)
   - Default shell selection
   - Maximum pane count
+  - Exit and layout safety confirmations
+  - LLM provider configuration (Ollama or OpenAI-compatible)
+  - LLM configuration verification before saving
+- LLM assistant integration:
+  - `LLM -> Ask the LLM...` opens a non-modal chat window
+  - Continuous chat context while the window is open
+  - Markdown-rendered responses
+  - Enter to send, Shift+Enter for newline
+  - Fast copy actions for transcript and last reply
 - Appearance:
   - Uses the OS desktop theme and native Qt appearance
   - Terminal rendering uses a dark xterm-like color profile
@@ -121,6 +130,8 @@ Generate a base64 payload for `startupScriptBase64` from a script file:
 Saved layout JSON contains:
 
 - `version`
+- optional `currentTabId`
+- optional `currentPaneId` (restores focused pane and switches to its tab on load)
 - `tabs` array:
   - each tab has `id`, `title`, and `root`
 - each `root` node:

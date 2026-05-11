@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWidget* parent)
@@ -16,6 +17,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     , m_title(QStringLiteral("Pane ") + paneId)
     , m_titleLabel(new QLabel(this))
     , m_titleBar(new QWidget(this))
+    , m_moveToTabButton(new QToolButton(this))
     , m_terminalView(new TerminalView(this)) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* rootLayout = new QVBoxLayout(this);
@@ -31,7 +33,12 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     titleFont.setBold(true);
     m_titleLabel->setFont(titleFont);
 
+    m_moveToTabButton->setText(QStringLiteral("Tab"));
+    m_moveToTabButton->setAutoRaise(true);
+    m_moveToTabButton->setToolTip(QStringLiteral("Move this pane to a new tab"));
+
     titleLayout->addWidget(m_titleLabel, 1);
+    titleLayout->addWidget(m_moveToTabButton, 0);
 
     m_terminalView->setShell(shellPath);
     m_terminalView->startShell();
@@ -55,6 +62,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
         menu.addSeparator();
         QAction* splitHorizontalAction = menu.addAction(QStringLiteral("Split Horizontally"));
         QAction* splitVerticalAction = menu.addAction(QStringLiteral("Split Vertically"));
+        QAction* moveToTabAction = menu.addAction(QStringLiteral("Move To New Tab"));
         QAction* renameAction = menu.addAction(QStringLiteral("Rename Pane..."));
         QAction* startupScriptAction = menu.addAction(QStringLiteral("Edit Startup Script..."));
         QAction* closeAction = menu.addAction(QStringLiteral("Close Terminal"));
@@ -76,6 +84,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit splitRequested(this, Qt::Vertical);
         } else if (chosen == splitVerticalAction) {
             emit splitRequested(this, Qt::Horizontal);
+        } else if (chosen == moveToTabAction) {
+            emit moveToNewTabRequested(this);
         } else if (chosen == renameAction) {
             emit renameRequested(this);
         } else if (chosen == startupScriptAction) {
@@ -94,6 +104,10 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     });
 
     connect(m_terminalView, &TerminalView::becameActive, this, &TerminalPane::onInnerActivated);
+    connect(m_moveToTabButton, &QToolButton::clicked, this, [this]() {
+        emit activated(this);
+        emit moveToNewTabRequested(this);
+    });
 
     updateHeader();
 }
@@ -157,4 +171,5 @@ void TerminalPane::updateHeader() {
     const QString tooltip = m_title + QStringLiteral(" (id: ") + m_paneId + QStringLiteral(")");
     m_titleLabel->setToolTip(tooltip);
     m_titleBar->setToolTip(tooltip);
+    m_moveToTabButton->setToolTip(QStringLiteral("Move ") + tooltip + QStringLiteral(" to a new tab"));
 }

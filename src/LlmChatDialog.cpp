@@ -6,10 +6,12 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QPalette>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollBar>
@@ -42,8 +44,22 @@ LlmChatDialog::LlmChatDialog(const AppSettings& settings, QWidget* parent)
     m_transcriptView->setOpenExternalLinks(true);
     m_transcriptView->setReadOnly(true);
 
+    {
+        QPalette transcriptPalette = m_transcriptView->palette();
+        const QColor tintedBase = transcriptPalette.color(QPalette::Base).darker(104);
+        transcriptPalette.setColor(QPalette::Base, tintedBase);
+        m_transcriptView->setPalette(transcriptPalette);
+    }
+
     m_inputEdit->setPlaceholderText(QStringLiteral("Ask a shell question..."));
     m_inputEdit->setMinimumHeight(88);
+    m_inputEdit->installEventFilter(this);
+    {
+        QPalette inputPalette = m_inputEdit->palette();
+        const QColor tintedBase = inputPalette.color(QPalette::Base).darker(106);
+        inputPalette.setColor(QPalette::Base, tintedBase);
+        m_inputEdit->setPalette(inputPalette);
+    }
 
     auto* toolsRow = new QHBoxLayout();
     toolsRow->addWidget(m_copyAllButton);
@@ -70,6 +86,24 @@ LlmChatDialog::LlmChatDialog(const AppSettings& settings, QWidget* parent)
 
 void LlmChatDialog::setSettings(const AppSettings& settings) {
     m_settings = settings;
+}
+
+bool LlmChatDialog::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_inputEdit && event->type() == QEvent::KeyPress) {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        const int key = keyEvent->key();
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            const Qt::KeyboardModifiers mods = keyEvent->modifiers();
+            const bool hasShift = (mods & Qt::ShiftModifier) != 0;
+            const bool hasOtherMods = (mods & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier)) != 0;
+            if (!hasShift && !hasOtherMods) {
+                sendPrompt();
+                return true;
+            }
+        }
+    }
+
+    return QDialog::eventFilter(watched, event);
 }
 
 QString LlmChatDialog::joinUrl(const QString& baseUrl, const QString& suffix) {

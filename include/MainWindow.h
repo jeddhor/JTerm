@@ -65,6 +65,7 @@ private:
     void splitPane(TerminalPane* pane, Qt::Orientation orientation);
     void closePane(TerminalPane* pane);
     void renamePane(TerminalPane* pane);
+    void movePaneToNewTab(TerminalPane* pane);
     void editPaneStartupScript(TerminalPane* pane);
 
     void closeTabByIndex(int index);
@@ -96,6 +97,7 @@ private:
     void syncActivePaneToCurrentTab();
     void refreshTabVisual(int index);
     void refreshLlmActionState();
+    void focusActivePaneTerminal();
 
     QTabWidget* m_tabWidget;
     QHash<QWidget*, TabInfo> m_tabInfos;

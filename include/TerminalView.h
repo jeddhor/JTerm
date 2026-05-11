@@ -27,6 +27,7 @@ public:
     void copy();
     void paste();
     void selectAll();
+    void focusTerminal();
 
 signals:
     void becameActive();
