@@ -17,6 +17,7 @@ public:
     AppSettings settings() const;
 
 private:
+    QComboBox* m_colorSchemeCombo;
     QLineEdit* m_shellEdit;
     QSpinBox* m_maxPanesSpin;
 };

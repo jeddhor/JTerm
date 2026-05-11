@@ -4,6 +4,7 @@
 
 struct AppSettings {
     QString defaultShell;
+    QString terminalColorScheme;
     int maxPanes = 32;
 };
 

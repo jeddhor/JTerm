@@ -233,6 +233,9 @@ void MainWindow::showSettingsDialog() {
     }
 
     m_settings = dialog.settings();
+    if (m_settings.terminalColorScheme.trimmed().isEmpty()) {
+        m_settings.terminalColorScheme = QStringLiteral("WhiteOnBlack");
+    }
     if (m_settings.defaultShell.isEmpty()) {
 #ifdef Q_OS_WIN
         m_settings.defaultShell = QStringLiteral("powershell.exe");
@@ -257,6 +260,7 @@ void MainWindow::applyTheme(const QString& themeName) {
         if (!view) {
             continue;
         }
+        view->setTerminalColorScheme(m_settings.terminalColorScheme);
         view->setTerminalColors(colors.foreground, colors.background);
     }
 
@@ -450,6 +454,14 @@ TerminalPane* MainWindow::createPane(const QString& title, const QString& forced
     if (!title.isEmpty()) {
         pane->setTitle(title);
     }
+
+    TerminalView* view = pane->terminalView();
+    if (view) {
+        view->setTerminalColorScheme(m_settings.terminalColorScheme);
+        const TerminalColors colors = ThemeManager::terminalColorsForTheme(QString());
+        view->setTerminalColors(colors.foreground, colors.background);
+    }
+
     wirePaneSignals(pane);
     return pane;
 }

@@ -23,6 +23,7 @@ SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a r
   - Save pane tree + splitter geometry to `.json`
   - Load `.json` layouts
 - Built-in settings dialog:
+  - Terminal color scheme (QTermWidget built-in schemes)
   - Default shell selection
   - Maximum pane count
 - Appearance:

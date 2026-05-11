@@ -11,6 +11,7 @@
 
 TerminalView::TerminalView(QWidget* parent)
     : QWidget(parent)
+    , m_colorSchemeName(QStringLiteral("WhiteOnBlack"))
     , m_terminal(new QTermWidget(0, this)) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
@@ -21,8 +22,25 @@ TerminalView::TerminalView(QWidget* parent)
 
     m_terminal->setTerminalSizeHint(false);
     m_terminal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, QStringLiteral("Linux")));
+    setTerminalColorScheme(m_colorSchemeName);
     m_terminal->installEventFilter(this);
+}
+
+QStringList TerminalView::availableColorSchemes() {
+    QTermWidget probe(0, nullptr);
+    QStringList schemes;
+    if (QMetaObject::invokeMethod(&probe, "availableColorSchemes", Q_RETURN_ARG(QStringList, schemes)) && !schemes.isEmpty()) {
+        return schemes;
+    }
+
+    return {
+        QStringLiteral("WhiteOnBlack"),
+        QStringLiteral("BlackOnWhite"),
+        QStringLiteral("Linux"),
+        QStringLiteral("GreenOnBlack"),
+        QStringLiteral("Solarized"),
+        QStringLiteral("SolarizedLight")
+    };
 }
 
 void TerminalView::setShell(const QString& shellPath) {
@@ -48,11 +66,26 @@ void TerminalView::sendCommand(const QString& command) {
     m_terminal->sendText(command + QLatin1Char('\n'));
 }
 
+void TerminalView::setTerminalColorScheme(const QString& schemeName) {
+    const QString normalized = schemeName.trimmed().isEmpty() ? QStringLiteral("WhiteOnBlack") : schemeName.trimmed();
+    m_colorSchemeName = normalized;
+
+    const bool applied = QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, normalized));
+    if (!applied) {
+        m_colorSchemeName = QStringLiteral("WhiteOnBlack");
+        QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, m_colorSchemeName));
+    }
+}
+
+QString TerminalView::terminalColorScheme() const {
+    return m_colorSchemeName;
+}
+
 void TerminalView::setTerminalColors(const QColor& foreground, const QColor& background) {
     Q_UNUSED(foreground);
     Q_UNUSED(background);
 
-    QMetaObject::invokeMethod(m_terminal, "setColorScheme", Q_ARG(QString, QStringLiteral("Linux")));
+    setTerminalColorScheme(m_colorSchemeName);
     m_terminal->setStyleSheet(QString());
 }
 

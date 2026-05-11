@@ -1,5 +1,8 @@
 #include "SettingsDialog.h"
 
+#include "TerminalView.h"
+
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QLineEdit>
@@ -8,6 +11,7 @@
 
 SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* parent)
     : QDialog(parent)
+    , m_colorSchemeCombo(new QComboBox(this))
     , m_shellEdit(new QLineEdit(this))
     , m_maxPanesSpin(new QSpinBox(this)) {
     setWindowTitle(QStringLiteral("Settings"));
@@ -18,6 +22,15 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     auto* formLayout = new QFormLayout();
     formLayout->setLabelAlignment(Qt::AlignLeft);
 
+    m_colorSchemeCombo->addItems(TerminalView::availableColorSchemes());
+    int schemeIndex = m_colorSchemeCombo->findText(initialSettings.terminalColorScheme);
+    if (schemeIndex < 0) {
+        schemeIndex = m_colorSchemeCombo->findText(QStringLiteral("WhiteOnBlack"));
+    }
+    if (schemeIndex >= 0) {
+        m_colorSchemeCombo->setCurrentIndex(schemeIndex);
+    }
+
     m_shellEdit->setText(initialSettings.defaultShell);
     m_shellEdit->setPlaceholderText(QStringLiteral("Default shell executable path"));
 
@@ -25,6 +38,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     m_maxPanesSpin->setMaximum(128);
     m_maxPanesSpin->setValue(initialSettings.maxPanes);
 
+    formLayout->addRow(QStringLiteral("Terminal color scheme:"), m_colorSchemeCombo);
     formLayout->addRow(QStringLiteral("Default shell:"), m_shellEdit);
     formLayout->addRow(QStringLiteral("Maximum panes:"), m_maxPanesSpin);
 
@@ -40,6 +54,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
 
 AppSettings SettingsDialog::settings() const {
     AppSettings result;
+    result.terminalColorScheme = m_colorSchemeCombo->currentText();
     result.defaultShell = m_shellEdit->text().trimmed();
     result.maxPanes = m_maxPanesSpin->value();
     return result;
