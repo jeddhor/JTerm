@@ -67,7 +67,7 @@ StartupScriptDialog::StartupScriptDialog(const QString& paneTitle, const QString
     : QDialog(parent)
     , m_editor(new QPlainTextEdit(this))
     , m_infoLabel(new QLabel(this))
-    , m_applyButton(new QPushButton(QStringLiteral("Apply"), this))
+    , m_saveButton(new QPushButton(QStringLiteral("Save"), this))
     , m_script(initialScript) {
     setWindowTitle(QStringLiteral("Pane Startup Script"));
     resize(760, 520);
@@ -77,7 +77,8 @@ StartupScriptDialog::StartupScriptDialog(const QString& paneTitle, const QString
     rootLayout->setSpacing(8);
 
     auto* helperLabel = new QLabel(
-        QStringLiteral("Commands in this script are executed when this pane is created from a loaded layout JSON."),
+        QStringLiteral("Commands in this script are executed when this pane is created from a loaded layout JSON."
+                       " Saving will apply changes and open layout Save As."),
         this);
     helperLabel->setWordWrap(true);
     rootLayout->addWidget(helperLabel);
@@ -107,21 +108,21 @@ StartupScriptDialog::StartupScriptDialog(const QString& paneTitle, const QString
 
     auto* buttonBox = new QDialogButtonBox(Qt::Horizontal, this);
     auto* cancelButton = buttonBox->addButton(QStringLiteral("Cancel"), QDialogButtonBox::RejectRole);
-    buttonBox->addButton(m_applyButton, QDialogButtonBox::AcceptRole);
+    buttonBox->addButton(m_saveButton, QDialogButtonBox::AcceptRole);
     rootLayout->addWidget(buttonBox);
 
-    connect(m_applyButton, &QPushButton::clicked, this, &StartupScriptDialog::applyAndClose);
+    connect(m_saveButton, &QPushButton::clicked, this, &StartupScriptDialog::saveAndClose);
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
 
     auto* applyShortcut = new QShortcut(QKeySequence(QStringLiteral("Ctrl+Return")), this);
-    connect(applyShortcut, &QShortcut::activated, this, &StartupScriptDialog::applyAndClose);
+    connect(applyShortcut, &QShortcut::activated, this, &StartupScriptDialog::saveAndClose);
 }
 
 QString StartupScriptDialog::script() const {
     return m_script;
 }
 
-void StartupScriptDialog::applyAndClose() {
+void StartupScriptDialog::saveAndClose() {
     m_script = m_editor->toPlainText();
     accept();
 }

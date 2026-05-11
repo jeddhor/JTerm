@@ -4,7 +4,9 @@
 #include <QApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
+#include <QFileInfo>
 #include <QFile>
+#include <QIcon>
 #include <QMessageBox>
 #include <QTextStream>
 
@@ -12,6 +14,18 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("JTerm"));
     QApplication::setOrganizationName(QStringLiteral("JTerm"));
+
+    const QString appDir = QApplication::applicationDirPath();
+    QString logoPath = appDir + QStringLiteral("/assets/JTerm_logo.png");
+    if (!QFileInfo::exists(logoPath)) {
+        logoPath = appDir + QStringLiteral("/JTerm_logo.png");
+    }
+    if (!QFileInfo::exists(logoPath)) {
+        logoPath = QStringLiteral("assets/JTerm_logo.png");
+    }
+    if (QFileInfo::exists(logoPath)) {
+        app.setWindowIcon(QIcon(logoPath));
+    }
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("JTerm - split-pane terminal emulator"));

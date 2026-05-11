@@ -285,6 +285,7 @@ void MainWindow::onCurrentTabChanged(int) {
 
 void MainWindow::initializeUi() {
     setWindowTitle(QStringLiteral("JTerm"));
+    setWindowIcon(qApp->windowIcon());
     resize(1500, 900);
 
     auto* host = new QWidget(this);
@@ -711,6 +712,7 @@ void MainWindow::editPaneStartupScript(TerminalPane* pane) {
 
     pane->setStartupScript(dialog.script());
     setActivePane(pane);
+    saveLayoutToFile();
 }
 
 void MainWindow::closeTabByIndex(int index) {

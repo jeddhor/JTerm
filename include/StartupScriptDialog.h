@@ -15,11 +15,11 @@ public:
     QString script() const;
 
 private slots:
-    void applyAndClose();
+    void saveAndClose();
 
 private:
     QPlainTextEdit* m_editor;
     QLabel* m_infoLabel;
-    QPushButton* m_applyButton;
+    QPushButton* m_saveButton;
     QString m_script;
 };
