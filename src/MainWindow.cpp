@@ -411,17 +411,25 @@ QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle
 }
 
 MainWindow::TabInfo* MainWindow::tabInfoForPage(QWidget* page) {
-    if (!page || !m_tabInfos.contains(page)) {
+    if (!page) {
         return nullptr;
     }
-    return &m_tabInfos[page];
+    auto it = m_tabInfos.find(page);
+    if (it == m_tabInfos.end()) {
+        return nullptr;
+    }
+    return &it.value();
 }
 
 const MainWindow::TabInfo* MainWindow::tabInfoForPage(QWidget* page) const {
-    if (!page || !m_tabInfos.contains(page)) {
+    if (!page) {
         return nullptr;
     }
-    return &m_tabInfos[page];
+    auto it = m_tabInfos.constFind(page);
+    if (it == m_tabInfos.constEnd()) {
+        return nullptr;
+    }
+    return &it.value();
 }
 
 QWidget* MainWindow::currentTabPage() const {
