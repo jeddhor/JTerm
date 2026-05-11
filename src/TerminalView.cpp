@@ -1,6 +1,9 @@
 #include "TerminalView.h"
 
+#include <QCoreApplication>
 #include <QEvent>
+#include <QKeyEvent>
+#include <QMetaObject>
 #include <QVBoxLayout>
 
 #include <qtermwidget6/qtermwidget.h>
@@ -55,7 +58,15 @@ void TerminalView::paste() {
 }
 
 void TerminalView::selectAll() {
-    m_terminal->selectAll();
+    if (QMetaObject::invokeMethod(m_terminal, "selectAll")) {
+        return;
+    }
+
+    m_terminal->setFocus();
+    QKeyEvent press(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier | Qt::ShiftModifier);
+    QKeyEvent release(QEvent::KeyRelease, Qt::Key_A, Qt::ControlModifier | Qt::ShiftModifier);
+    QCoreApplication::sendEvent(m_terminal, &press);
+    QCoreApplication::sendEvent(m_terminal, &release);
 }
 
 bool TerminalView::eventFilter(QObject* watched, QEvent* event) {

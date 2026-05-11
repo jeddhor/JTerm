@@ -48,6 +48,12 @@ sudo apt install -y build-essential make pkg-config qt6-base-dev qt6-base-dev-to
 
 On some Ubuntu releases, the package may be named `libqtermwidget6-dev` instead.
 
+If launch or link errors mention `utf8proc`, install:
+
+```bash
+sudo apt install -y libutf8proc3
+```
+
 ## Build
 
 ```bash
