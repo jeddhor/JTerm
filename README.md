@@ -43,8 +43,10 @@ SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a r
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential make pkg-config qt6-base-dev qt6-base-dev-tools libqtermwidget6-dev
+sudo apt install -y build-essential make pkg-config qt6-base-dev qt6-base-dev-tools libqtermwidget6-2-dev
 ```
+
+On some Ubuntu releases, the package may be named `libqtermwidget6-dev` instead.
 
 ## Build
 
