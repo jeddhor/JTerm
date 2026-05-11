@@ -26,6 +26,7 @@ private slots:
     void createNewTab();
     void closeCurrentTab();
     void renameCurrentTab();
+    void editLayoutJson();
     void saveLayoutToFile();
     void loadLayoutFromFile();
     void showSettingsDialog();
@@ -58,6 +59,9 @@ private:
 
     void closeTabByIndex(int index);
     void renameTabByIndex(int index);
+
+    QJsonObject exportLayoutObject() const;
+    bool importLayoutObject(const QJsonObject& rootObject, QString* errorMessage);
 
     QJsonObject serializeNode(QWidget* node) const;
     QWidget* deserializeNode(const QJsonObject& nodeObject, bool* ok);

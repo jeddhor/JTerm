@@ -2,6 +2,7 @@
 
 #include "AppSettings.h"
 #include "CommandServer.h"
+#include "LayoutEditorDialog.h"
 #include "SnapSplitter.h"
 #include "SettingsDialog.h"
 #include "TerminalPane.h"
@@ -99,29 +100,7 @@ void MainWindow::saveLayoutToFile() {
         return;
     }
 
-    QJsonObject rootObject;
-    rootObject.insert(QStringLiteral("version"), 2);
-
-    QJsonArray tabsArray;
-    for (int i = 0; i < m_tabWidget->count(); ++i) {
-        QWidget* page = m_tabWidget->widget(i);
-        const TabInfo* info = tabInfoForPage(page);
-        if (!info || !info->rootNode) {
-            continue;
-        }
-
-        QJsonObject tabObject;
-        tabObject.insert(QStringLiteral("id"), info->id);
-        tabObject.insert(QStringLiteral("title"), info->title);
-        tabObject.insert(QStringLiteral("root"), serializeNode(info->rootNode));
-        tabsArray.append(tabObject);
-    }
-
-    rootObject.insert(QStringLiteral("tabs"), tabsArray);
-    const TabInfo* currentInfo = currentTabInfo();
-    if (currentInfo) {
-        rootObject.insert(QStringLiteral("currentTabId"), currentInfo->id);
-    }
+    const QJsonObject rootObject = exportLayoutObject();
 
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -150,80 +129,23 @@ void MainWindow::loadLayoutFromFile() {
         return;
     }
 
-    const QJsonObject rootObject = doc.object();
-
-    while (m_tabWidget->count() > 0) {
-        QWidget* page = m_tabWidget->widget(0);
-        m_tabInfos.remove(page);
-        m_tabWidget->removeTab(0);
-        page->deleteLater();
+    QString error;
+    if (!importLayoutObject(doc.object(), &error)) {
+        QMessageBox::critical(this, QStringLiteral("Load failed"), error);
     }
+}
 
-    m_usedPaneIds.clear();
-    m_usedTabIds.clear();
-    m_nextPaneCounter = 1;
-    m_nextTabCounter = 1;
-    m_activePane = nullptr;
-
-    const int version = rootObject.value(QStringLiteral("version")).toInt(1);
-    if (version <= 1) {
-        bool ok = true;
-        QWidget* rootNode = deserializeNode(rootObject.value(QStringLiteral("root")).toObject(), &ok);
-        if (!ok || !rootNode) {
-            QMessageBox::critical(this, QStringLiteral("Load failed"), QStringLiteral("Could not deserialize layout."));
-            createNewTab();
-            return;
-        }
-        createTabPage(nextTabId(), QStringLiteral("Tab 1"), rootNode);
-        m_tabWidget->setCurrentIndex(0);
-        syncActivePaneToCurrentTab();
-        applyTheme(QString());
+void MainWindow::editLayoutJson() {
+    const QJsonObject currentLayout = exportLayoutObject();
+    LayoutEditorDialog dialog(currentLayout, this);
+    if (dialog.exec() != QDialog::Accepted) {
         return;
     }
 
-    const QJsonArray tabsArray = rootObject.value(QStringLiteral("tabs")).toArray();
-    for (const QJsonValue& tabValue : tabsArray) {
-        if (!tabValue.isObject()) {
-            continue;
-        }
-        const QJsonObject tabObject = tabValue.toObject();
-
-        bool ok = true;
-        QWidget* rootNode = deserializeNode(tabObject.value(QStringLiteral("root")).toObject(), &ok);
-        if (!ok || !rootNode) {
-            if (rootNode) {
-                rootNode->deleteLater();
-            }
-            continue;
-        }
-
-        QString tabId = normalizeTabId(tabObject.value(QStringLiteral("id")).toString());
-        QString tabTitle = tabObject.value(QStringLiteral("title")).toString();
-        if (tabTitle.trimmed().isEmpty()) {
-            tabTitle = QStringLiteral("Tab ") + tabId;
-        }
-
-        createTabPage(tabId, tabTitle, rootNode);
+    QString error;
+    if (!importLayoutObject(dialog.layoutObject(), &error)) {
+        QMessageBox::critical(this, QStringLiteral("Apply layout failed"), error);
     }
-
-    if (m_tabWidget->count() == 0) {
-        createNewTab();
-    }
-
-    const QString currentTabId = rootObject.value(QStringLiteral("currentTabId")).toString();
-    if (!currentTabId.isEmpty()) {
-        for (int i = 0; i < m_tabWidget->count(); ++i) {
-            QWidget* page = m_tabWidget->widget(i);
-            const TabInfo* info = tabInfoForPage(page);
-            if (info && info->id == currentTabId) {
-                m_tabWidget->setCurrentIndex(i);
-                break;
-            }
-        }
-    }
-
-    syncActivePaneToCurrentTab();
-    applyTheme(QString());
 }
 
 void MainWindow::showSettingsDialog() {
@@ -352,6 +274,8 @@ void MainWindow::initializeUi() {
 
 void MainWindow::createMenus() {
     auto* fileMenu = menuBar()->addMenu(QStringLiteral("&File"));
+    fileMenu->addAction(QStringLiteral("Edit Layout..."), QKeySequence(QStringLiteral("Ctrl+Shift+E")), this, &MainWindow::editLayoutJson);
+    fileMenu->addSeparator();
     fileMenu->addAction(QStringLiteral("Save Layout..."), QKeySequence(QStringLiteral("Ctrl+S")), this, &MainWindow::saveLayoutToFile);
     fileMenu->addAction(QStringLiteral("Load Layout..."), QKeySequence(QStringLiteral("Ctrl+O")), this, &MainWindow::loadLayoutFromFile);
     fileMenu->addSeparator();
@@ -755,6 +679,116 @@ void MainWindow::renameTabByIndex(int index) {
 
     info->title = newTitle.trimmed().isEmpty() ? (QStringLiteral("Tab ") + info->id) : newTitle.trimmed();
     refreshTabVisual(index);
+}
+
+QJsonObject MainWindow::exportLayoutObject() const {
+    QJsonObject rootObject;
+    rootObject.insert(QStringLiteral("version"), 2);
+
+    QJsonArray tabsArray;
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QWidget* page = m_tabWidget->widget(i);
+        const TabInfo* info = tabInfoForPage(page);
+        if (!info || !info->rootNode) {
+            continue;
+        }
+
+        QJsonObject tabObject;
+        tabObject.insert(QStringLiteral("id"), info->id);
+        tabObject.insert(QStringLiteral("title"), info->title);
+        tabObject.insert(QStringLiteral("root"), serializeNode(info->rootNode));
+        tabsArray.append(tabObject);
+    }
+    rootObject.insert(QStringLiteral("tabs"), tabsArray);
+
+    const TabInfo* currentInfo = currentTabInfo();
+    if (currentInfo) {
+        rootObject.insert(QStringLiteral("currentTabId"), currentInfo->id);
+    }
+
+    return rootObject;
+}
+
+bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* errorMessage) {
+    while (m_tabWidget->count() > 0) {
+        QWidget* page = m_tabWidget->widget(0);
+        m_tabInfos.remove(page);
+        m_tabWidget->removeTab(0);
+        page->deleteLater();
+    }
+
+    m_usedPaneIds.clear();
+    m_usedTabIds.clear();
+    m_nextPaneCounter = 1;
+    m_nextTabCounter = 1;
+    m_activePane = nullptr;
+
+    const int version = rootObject.value(QStringLiteral("version")).toInt(1);
+    if (version <= 1) {
+        bool ok = true;
+        QWidget* rootNode = deserializeNode(rootObject.value(QStringLiteral("root")).toObject(), &ok);
+        if (!ok || !rootNode) {
+            if (errorMessage) {
+                *errorMessage = QStringLiteral("Could not deserialize legacy layout root node.");
+            }
+            createNewTab();
+            return false;
+        }
+        createTabPage(nextTabId(), QStringLiteral("Tab 1"), rootNode);
+        m_tabWidget->setCurrentIndex(0);
+        syncActivePaneToCurrentTab();
+        applyTheme(QString());
+        return true;
+    }
+
+    const QJsonArray tabsArray = rootObject.value(QStringLiteral("tabs")).toArray();
+    for (const QJsonValue& tabValue : tabsArray) {
+        if (!tabValue.isObject()) {
+            continue;
+        }
+        const QJsonObject tabObject = tabValue.toObject();
+
+        bool ok = true;
+        QWidget* rootNode = deserializeNode(tabObject.value(QStringLiteral("root")).toObject(), &ok);
+        if (!ok || !rootNode) {
+            if (rootNode) {
+                rootNode->deleteLater();
+            }
+            continue;
+        }
+
+        QString tabId = normalizeTabId(tabObject.value(QStringLiteral("id")).toString());
+        QString tabTitle = tabObject.value(QStringLiteral("title")).toString();
+        if (tabTitle.trimmed().isEmpty()) {
+            tabTitle = QStringLiteral("Tab ") + tabId;
+        }
+
+        createTabPage(tabId, tabTitle, rootNode);
+    }
+
+    if (m_tabWidget->count() == 0) {
+        if (errorMessage) {
+            *errorMessage = QStringLiteral("Layout contains no valid tabs.");
+        }
+        createNewTab();
+        return false;
+    }
+
+    const QString currentTabId = rootObject.value(QStringLiteral("currentTabId")).toString();
+    if (!currentTabId.isEmpty()) {
+        for (int i = 0; i < m_tabWidget->count(); ++i) {
+            QWidget* page = m_tabWidget->widget(i);
+            const TabInfo* info = tabInfoForPage(page);
+            if (info && info->id == currentTabId) {
+                m_tabWidget->setCurrentIndex(i);
+                break;
+            }
+        }
+    }
+
+    syncActivePaneToCurrentTab();
+    applyTheme(QString());
+    return true;
 }
 
 QJsonObject MainWindow::serializeNode(QWidget* node) const {
