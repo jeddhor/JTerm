@@ -107,6 +107,13 @@ bool MainWindow::loadLayoutFromPath(const QString& path, QString* errorMessage) 
         return false;
     }
 
+    if (layoutContainsStartupScripts(doc.object()) && !confirmLoadLayoutWithStartupScripts()) {
+        if (errorMessage) {
+            errorMessage->clear();
+        }
+        return false;
+    }
+
     return importLayoutObject(doc.object(), errorMessage);
 }
 
@@ -189,6 +196,11 @@ void MainWindow::loadLayoutFromFile() {
     const QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
     if (!doc.isObject()) {
         QMessageBox::critical(this, QStringLiteral("Load failed"), QStringLiteral("Invalid layout JSON."));
+        return;
+    }
+
+    if (layoutContainsStartupScripts(doc.object()) && !confirmLoadLayoutWithStartupScripts()) {
+        statusBar()->showMessage(QStringLiteral("Layout load canceled."), 2500);
         return;
     }
 
@@ -1023,6 +1035,55 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
 
     *ok = false;
     return nullptr;
+}
+
+bool MainWindow::nodeContainsStartupScripts(const QJsonObject& nodeObject) const {
+    const QString encoded = nodeObject.value(QStringLiteral("startupScriptBase64")).toString();
+    if (!encoded.trimmed().isEmpty()) {
+        return true;
+    }
+
+    const QJsonArray children = nodeObject.value(QStringLiteral("children")).toArray();
+    for (const QJsonValue& childValue : children) {
+        if (childValue.isObject() && nodeContainsStartupScripts(childValue.toObject())) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool MainWindow::layoutContainsStartupScripts(const QJsonObject& layoutObject) const {
+    if (nodeContainsStartupScripts(layoutObject.value(QStringLiteral("root")).toObject())) {
+        return true;
+    }
+
+    const QJsonArray tabsArray = layoutObject.value(QStringLiteral("tabs")).toArray();
+    for (const QJsonValue& tabValue : tabsArray) {
+        if (!tabValue.isObject()) {
+            continue;
+        }
+        if (nodeContainsStartupScripts(tabValue.toObject().value(QStringLiteral("root")).toObject())) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool MainWindow::confirmLoadLayoutWithStartupScripts() const {
+    if (!m_settings.warnOnLayoutStartupScripts) {
+        return true;
+    }
+
+    const QMessageBox::StandardButton choice = QMessageBox::warning(
+        const_cast<MainWindow*>(this),
+        QStringLiteral("\u26A0 Startup Commands In Layout"),
+        QStringLiteral("\u26A0 This layout contains startup commands that will execute automatically when loaded.\n\nOnly continue if you trust the layout file source.\n\nLoad this layout anyway?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+
+    return choice == QMessageBox::Yes;
 }
 
 void MainWindow::applySnapScope(QWidget* node, QWidget* snapScope) {

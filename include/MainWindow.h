@@ -73,6 +73,9 @@ private:
     QJsonObject serializeNode(QWidget* node) const;
     QWidget* deserializeNode(const QJsonObject& nodeObject, bool* ok);
     void applySnapScope(QWidget* node, QWidget* snapScope);
+    bool nodeContainsStartupScripts(const QJsonObject& nodeObject) const;
+    bool layoutContainsStartupScripts(const QJsonObject& layoutObject) const;
+    bool confirmLoadLayoutWithStartupScripts() const;
 
     void collectPanes(QWidget* node, QList<TerminalPane*>& outPanes) const;
     void collectAllPanes(QList<TerminalPane*>& outPanes) const;

@@ -77,8 +77,10 @@ int main(int argc, char* argv[]) {
     if (parser.isSet(layoutOption)) {
         QString error;
         if (!window.loadLayoutFromPath(parser.value(layoutOption), &error)) {
-            QMessageBox::critical(nullptr, QStringLiteral("JTerm CLI"), error);
-            return 1;
+            if (!error.trimmed().isEmpty()) {
+                QMessageBox::critical(nullptr, QStringLiteral("JTerm CLI"), error);
+                return 1;
+            }
         }
     }
     window.show();

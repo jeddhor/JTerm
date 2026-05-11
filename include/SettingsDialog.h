@@ -22,4 +22,5 @@ private:
     QLineEdit* m_shellEdit;
     QSpinBox* m_maxPanesSpin;
     QCheckBox* m_confirmExitCheck;
+    QCheckBox* m_warnStartupScriptsCheck;
 };
