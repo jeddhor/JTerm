@@ -511,11 +511,15 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
     }
 
     QWidget* parentNode = pane->parentWidget();
-    auto* sibling = createPane();
 
     if (auto* parentSplitter = qobject_cast<QSplitter*>(parentNode)) {
         if (parentSplitter->orientation() == orientation) {
             const int index = parentSplitter->indexOf(pane);
+            if (index < 0) {
+                return;
+            }
+
+            auto* sibling = createPane();
             parentSplitter->insertWidget(index + 1, sibling);
             parentSplitter->setChildrenCollapsible(false);
             parentSplitter->setStretchFactor(index, 1);
@@ -536,13 +540,30 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
 
         const int index = parentSplitter->indexOf(pane);
         if (index < 0) {
-            sibling->deleteLater();
             return;
         }
 
+        auto* sibling = createPane();
+
+        const QList<int> parentSizesBefore = parentSplitter->sizes();
+
         auto* newSplitter = new QSplitter(orientation, parentSplitter);
         newSplitter->setChildrenCollapsible(false);
-        parentSplitter->insertWidget(index, newSplitter);
+
+        QWidget* replaced = parentSplitter->replaceWidget(index, newSplitter);
+        if (replaced != pane) {
+            if (replaced) {
+                replaced->setParent(parentSplitter);
+                parentSplitter->insertWidget(index, replaced);
+            }
+            sibling->deleteLater();
+            newSplitter->deleteLater();
+            return;
+        }
+
+        if (parentSizesBefore.size() == parentSplitter->count()) {
+            parentSplitter->setSizes(parentSizesBefore);
+        }
 
         pane->setParent(newSplitter);
         sibling->setParent(newSplitter);
@@ -557,12 +578,12 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
     }
 
     if (parentNode == tabPage) {
+        auto* sibling = createPane();
         auto* newSplitter = new QSplitter(orientation, tabPage);
         newSplitter->setChildrenCollapsible(false);
 
         auto* layout = tabPage->layout();
-        layout->removeWidget(pane);
-        layout->addWidget(newSplitter);
+        layout->replaceWidget(pane, newSplitter);
 
         pane->setParent(newSplitter);
         sibling->setParent(newSplitter);
@@ -580,8 +601,6 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         setActivePane(sibling);
         return;
     }
-
-    sibling->deleteLater();
 }
 
 void MainWindow::closePane(TerminalPane* pane) {
