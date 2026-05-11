@@ -22,6 +22,7 @@ signals:
     void activated(TerminalPane* pane);
     void closeRequested(TerminalPane* pane);
     void renameRequested(TerminalPane* pane);
+    void preferencesRequested(TerminalPane* pane);
     void copyRequested(TerminalPane* pane);
     void pasteRequested(TerminalPane* pane);
     void selectAllRequested(TerminalPane* pane);

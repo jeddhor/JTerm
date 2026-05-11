@@ -968,6 +968,12 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::activated, this, &MainWindow::setActivePane);
     connect(pane, &TerminalPane::closeRequested, this, &MainWindow::closePane);
     connect(pane, &TerminalPane::renameRequested, this, &MainWindow::renamePane);
+    connect(pane, &TerminalPane::preferencesRequested, this, [this](TerminalPane* sourcePane) {
+        if (sourcePane) {
+            setActivePane(sourcePane);
+        }
+        showSettingsDialog();
+    });
     connect(pane, &TerminalPane::copyRequested, this, [this](TerminalPane* sourcePane) {
         if (sourcePane) {
             setActivePane(sourcePane);

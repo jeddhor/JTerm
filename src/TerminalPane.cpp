@@ -57,6 +57,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
         QAction* splitVerticalAction = menu.addAction(QStringLiteral("Split Vertically"));
         QAction* renameAction = menu.addAction(QStringLiteral("Rename Pane..."));
         QAction* closeAction = menu.addAction(QStringLiteral("Close Terminal"));
+        menu.addSeparator();
+        QAction* preferencesAction = menu.addAction(QStringLiteral("Preferences..."));
 
         QAction* chosen = menu.exec(mapToGlobal(pos));
         if (!chosen) {
@@ -77,6 +79,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit renameRequested(this);
         } else if (chosen == closeAction) {
             emit closeRequested(this);
+        } else if (chosen == preferencesAction) {
+            emit preferencesRequested(this);
         }
     };
 
