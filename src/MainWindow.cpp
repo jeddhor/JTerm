@@ -544,13 +544,15 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         }
 
         const QList<int> parentSizesBefore = parentSplitter->sizes();
-
-        pane->setParent(nullptr);
-
-        auto* sibling = createPane();
         auto* newSplitter = new QSplitter(orientation, parentSplitter);
         newSplitter->setChildrenCollapsible(false);
-        parentSplitter->insertWidget(index, newSplitter);
+        QWidget* replaced = parentSplitter->replaceWidget(index, newSplitter);
+        if (replaced != pane) {
+            newSplitter->deleteLater();
+            return;
+        }
+
+        auto* sibling = createPane();
 
         pane->setParent(newSplitter);
         sibling->setParent(newSplitter);
@@ -570,6 +572,12 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
         if (parentSizesBefore.size() == parentSplitter->count()) {
             parentSplitter->setSizes(parentSizesBefore);
         }
+
+        pane->show();
+        sibling->show();
+        newSplitter->show();
+        parentSplitter->updateGeometry();
+        newSplitter->updateGeometry();
 
         setActivePane(sibling);
         return;
