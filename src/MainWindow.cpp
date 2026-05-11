@@ -12,8 +12,10 @@
 
 #include <QApplication>
 #include <QByteArray>
+#include <QDesktopServices>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -22,12 +24,14 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPixmap>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QtGlobal>
+#include <QUrl>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -192,6 +196,38 @@ void MainWindow::showSettingsDialog() {
     applyTheme(QString());
 }
 
+void MainWindow::openProjectGithubPage() {
+    QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/jeddhor/SplitTerm")));
+}
+
+void MainWindow::showAboutDialog() {
+    QMessageBox box(this);
+    box.setWindowTitle(QStringLiteral("About JTerm"));
+
+    QString logoPath = QCoreApplication::applicationDirPath() + QStringLiteral("/assets/JTerm_logo.png");
+    if (!QFileInfo::exists(logoPath)) {
+        logoPath = QCoreApplication::applicationDirPath() + QStringLiteral("/JTerm_logo.png");
+    }
+    if (!QFileInfo::exists(logoPath)) {
+        logoPath = QStringLiteral("assets/JTerm_logo.png");
+    }
+
+    QPixmap logo(logoPath);
+    if (!logo.isNull()) {
+        box.setIconPixmap(logo.scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        box.setIcon(QMessageBox::Information);
+    }
+
+    box.setText(QStringLiteral("JTerm"));
+    box.setInformativeText(
+        QStringLiteral("JTerm (Jason's Terminal)\n"
+                       "A Qt6 split-pane and tabbed terminal emulator with layout JSON editing,\n"
+                       "startup scripts, and command routing to panes."));
+    box.setStandardButtons(QMessageBox::Ok);
+    box.exec();
+}
+
 void MainWindow::applyTheme(const QString& themeName) {
     ThemeManager::applyTheme(*qApp, themeName);
 
@@ -248,7 +284,7 @@ void MainWindow::onCurrentTabChanged(int) {
 }
 
 void MainWindow::initializeUi() {
-    setWindowTitle(QStringLiteral("SplitTerm"));
+    setWindowTitle(QStringLiteral("JTerm"));
     resize(1500, 900);
 
     auto* host = new QWidget(this);
@@ -333,6 +369,11 @@ void MainWindow::createMenus() {
 
     auto* settingsMenu = menuBar()->addMenu(QStringLiteral("&Settings"));
     settingsMenu->addAction(QStringLiteral("Preferences..."), QKeySequence(QStringLiteral("Ctrl+,")), this, &MainWindow::showSettingsDialog);
+
+    auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
+    helpMenu->addAction(QStringLiteral("Project on GitHub"), this, &MainWindow::openProjectGithubPage);
+    helpMenu->addSeparator();
+    helpMenu->addAction(QStringLiteral("About JTerm"), this, &MainWindow::showAboutDialog);
 }
 
 QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode) {

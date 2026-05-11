@@ -10,11 +10,11 @@
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("SplitTerm"));
-    QApplication::setOrganizationName(QStringLiteral("SplitTerm"));
+    QApplication::setApplicationName(QStringLiteral("JTerm"));
+    QApplication::setOrganizationName(QStringLiteral("JTerm"));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("SplitTerm - split-pane terminal emulator"));
+    parser.setApplicationDescription(QStringLiteral("JTerm - split-pane terminal emulator"));
     parser.addHelpOption();
 
     QCommandLineOption sendOption(QStringList() << QStringLiteral("s") << QStringLiteral("send"), QStringLiteral("Send command to running instance."), QStringLiteral("command"));
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
 
         QString error;
         if (!CommandServer::sendCommandToRunningInstance(paneId, paneTitle, command, &error)) {
-            QMessageBox::critical(nullptr, QStringLiteral("SplitTerm CLI"), error);
+            QMessageBox::critical(nullptr, QStringLiteral("JTerm CLI"), error);
             return 1;
         }
         return 0;
@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
     if (parser.isSet(layoutOption)) {
         QString error;
         if (!window.loadLayoutFromPath(parser.value(layoutOption), &error)) {
-            QMessageBox::critical(nullptr, QStringLiteral("SplitTerm CLI"), error);
+            QMessageBox::critical(nullptr, QStringLiteral("JTerm CLI"), error);
             return 1;
         }
     }

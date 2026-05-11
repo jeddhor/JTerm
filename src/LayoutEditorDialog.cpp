@@ -336,7 +336,7 @@ QString LayoutEditorDialog::validationHintForLayout(const QJsonObject& rootObjec
     const bool hasRoot = rootObject.contains(QStringLiteral("root"));
 
     if (!hasTabs && !hasRoot) {
-        return QStringLiteral("This JSON is valid, but does not look like a SplitTerm layout (missing 'tabs' or 'root').");
+        return QStringLiteral("This JSON is valid, but does not look like a JTerm layout (missing 'tabs' or 'root').");
     }
 
     if (!rootObject.contains(QStringLiteral("version"))) {

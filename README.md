@@ -1,6 +1,6 @@
-# SplitTerm (Qt6 C++ Terminal Emulator)
+# JTerm (Qt6 C++ Terminal Emulator)
 
-SplitTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a real PTY/TTY backend via QTermWidget.
+JTerm is a Linux-first, Qt6-based split-pane terminal emulator that uses a real PTY/TTY backend via QTermWidget.
 
 ## Features
 
@@ -79,29 +79,29 @@ make
 ## Run
 
 ```bash
-./splitterm
+./jterm
 ```
 
-On Windows with MinGW, executable is `splitterm.exe`.
+On Windows with MinGW, executable is `jterm.exe`.
 
 ### Start With A Layout File
 
 ```bash
-./splitterm --layout ./layout.json
+./jterm --layout ./layout.json
 ```
 
 ## Remote CLI Usage
 
-Send a command to a running SplitTerm instance:
+Send a command to a running JTerm instance:
 
 ```bash
-./splitterm --send "ls -la" --pane-id 3
+./jterm --send "ls -la" --pane-id 3
 ```
 
 Or by pane title:
 
 ```bash
-./splitterm --send "pwd" --pane-title "Logs"
+./jterm --send "pwd" --pane-title "Logs"
 ```
 
 If no running instance is listening, the CLI command returns an error.
@@ -111,7 +111,7 @@ If no running instance is listening, the CLI command returns an error.
 Generate a base64 payload for `startupScriptBase64` from a script file:
 
 ```bash
-./splitterm --encode-startup-script ./startup.sh
+./jterm --encode-startup-script ./startup.sh
 ```
 
 ## Layout JSON Shape

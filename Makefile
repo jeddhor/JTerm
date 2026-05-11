@@ -1,7 +1,7 @@
-APP := splitterm
+APP := jterm
 
 ifeq ($(OS),Windows_NT)
-APP := splitterm.exe
+APP := jterm.exe
 MKDIR_P := if not exist build mkdir build
 RM_RF := if exist build rmdir /S /Q build & if exist $(APP) del /Q $(APP)
 else

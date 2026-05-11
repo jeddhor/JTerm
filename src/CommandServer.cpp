@@ -41,7 +41,7 @@ QString CommandServer::defaultServerName() {
     const QString username = qEnvironmentVariable("USER").isEmpty()
         ? qEnvironmentVariable("USERNAME")
         : qEnvironmentVariable("USER");
-    return QStringLiteral("splitterm_ipc_") + sanitizeName(username);
+    return QStringLiteral("jterm_ipc_") + sanitizeName(username);
 }
 
 bool CommandServer::sendCommandToRunningInstance(const QString& paneId, const QString& paneTitle, const QString& command, QString* errorMessage) {
@@ -49,7 +49,7 @@ bool CommandServer::sendCommandToRunningInstance(const QString& paneId, const QS
     socket.connectToServer(defaultServerName());
     if (!socket.waitForConnected(800)) {
         if (errorMessage) {
-            *errorMessage = QStringLiteral("Could not connect to running SplitTerm instance.");
+            *errorMessage = QStringLiteral("Could not connect to running JTerm instance.");
         }
         return false;
     }

@@ -30,6 +30,8 @@ private slots:
     void editLayoutJson();
     void saveLayoutToFile();
     void loadLayoutFromFile();
+    void openProjectGithubPage();
+    void showAboutDialog();
     void showSettingsDialog();
     void applyTheme(const QString& themeName);
     void handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command);

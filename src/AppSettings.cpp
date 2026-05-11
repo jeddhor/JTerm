@@ -15,7 +15,7 @@ QString defaultShellForPlatform() {
 namespace SettingsStore {
 
 AppSettings load() {
-    QSettings settings(QStringLiteral("SplitTerm"), QStringLiteral("SplitTerm"));
+    QSettings settings(QStringLiteral("JTerm"), QStringLiteral("JTerm"));
 
     AppSettings result;
     result.defaultShell = settings.value(QStringLiteral("terminal/defaultShell"), defaultShellForPlatform()).toString();
@@ -31,7 +31,7 @@ AppSettings load() {
 }
 
 void save(const AppSettings& settingsData) {
-    QSettings settings(QStringLiteral("SplitTerm"), QStringLiteral("SplitTerm"));
+    QSettings settings(QStringLiteral("JTerm"), QStringLiteral("JTerm"));
 
     settings.setValue(QStringLiteral("terminal/defaultShell"), settingsData.defaultShell);
     settings.setValue(QStringLiteral("terminal/colorScheme"), settingsData.terminalColorScheme);
