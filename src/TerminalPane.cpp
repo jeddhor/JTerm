@@ -108,10 +108,6 @@ TerminalView* TerminalPane::terminalView() const {
     return m_terminalView;
 }
 
-void TerminalPane::onTitleEdited(const QString&) {
-    emit activated(this);
-}
-
 void TerminalPane::onInnerActivated() {
     emit activated(this);
 }
