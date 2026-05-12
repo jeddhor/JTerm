@@ -116,14 +116,15 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 QString MainWindow::autoSavedLayoutPath() const {
-    QString baseDir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    QString baseDir = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
     if (baseDir.trimmed().isEmpty()) {
         baseDir = QDir::homePath() + QStringLiteral("/.config");
     }
 
     QDir dir(baseDir);
-    dir.mkpath(QStringLiteral("jterm"));
-    return dir.filePath(QStringLiteral("jterm/layout-autosave.json"));
+    const QString jtermDir = dir.filePath(QStringLiteral("jterm"));
+    dir.mkpath(jtermDir);
+    return QDir(jtermDir).filePath(QStringLiteral("layout-autosave.json"));
 }
 
 bool MainWindow::tryRestoreAutoSavedLayout() {
