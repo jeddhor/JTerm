@@ -27,6 +27,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     , m_colorSchemeCombo(new QComboBox(this))
     , m_shellEdit(new QLineEdit(this))
     , m_maxPanesSpin(new QSpinBox(this))
+    , m_startupThrottleSpin(new QSpinBox(this))
     , m_llmProviderCombo(new QComboBox(this))
     , m_llmBaseUrlEdit(new QLineEdit(this))
     , m_llmModelEdit(new QLineEdit(this))
@@ -66,9 +67,15 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     m_maxPanesSpin->setMaximum(128);
     m_maxPanesSpin->setValue(initialSettings.maxPanes);
 
+    m_startupThrottleSpin->setMinimum(1);
+    m_startupThrottleSpin->setMaximum(300);
+    m_startupThrottleSpin->setSuffix(QStringLiteral(" s"));
+    m_startupThrottleSpin->setValue(initialSettings.startupScriptThrottleIntervalSeconds);
+
     formLayout->addRow(QStringLiteral("Terminal color scheme:"), m_colorSchemeCombo);
     formLayout->addRow(QStringLiteral("Default shell:"), m_shellEdit);
     formLayout->addRow(QStringLiteral("Maximum panes:"), m_maxPanesSpin);
+    formLayout->addRow(QStringLiteral("Startup throttle interval:"), m_startupThrottleSpin);
 
     generalLayout->addLayout(formLayout);
     m_confirmExitCheck->setChecked(initialSettings.confirmOnMultiPaneExit);
@@ -169,6 +176,7 @@ AppSettings SettingsDialog::collectSettingsFromUi() const {
     result.terminalColorScheme = m_colorSchemeCombo->currentText();
     result.defaultShell = m_shellEdit->text().trimmed();
     result.maxPanes = m_maxPanesSpin->value();
+    result.startupScriptThrottleIntervalSeconds = m_startupThrottleSpin->value();
     result.confirmOnMultiPaneExit = m_confirmExitCheck->isChecked();
     result.warnOnLayoutStartupScripts = m_warnStartupScriptsCheck->isChecked();
     result.autoSaveRestoreLayout = m_autoSaveRestoreLayoutCheck->isChecked();

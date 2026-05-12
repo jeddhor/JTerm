@@ -4,6 +4,7 @@
 
 class QLabel;
 class QCheckBox;
+class QTimer;
 class TerminalView;
 class QToolButton;
 
@@ -18,6 +19,9 @@ public:
     void setTitle(const QString& title);
     QString startupScript() const;
     void setStartupScript(const QString& script);
+    bool startupScriptThrottled() const;
+    void setStartupScriptThrottled(bool enabled);
+    void setStartupThrottleIntervalSeconds(int seconds);
     void runStartupScript();
     bool hasRunningProcess() const;
     void setMoveToTabVisible(bool visible);
@@ -45,6 +49,7 @@ signals:
 
 private slots:
     void onInnerActivated();
+    void runNextStartupStep();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -55,6 +60,9 @@ private:
     QString m_paneId;
     QString m_title;
     QString m_startupScript;
+    bool m_startupScriptThrottled;
+    int m_startupThrottleIntervalSeconds;
+    QStringList m_pendingStartupSteps;
 
     QLabel* m_titleLabel;
     QLabel* m_startupIndicatorLabel;
@@ -62,5 +70,6 @@ private:
     QCheckBox* m_broadcastTargetCheck;
     QToolButton* m_moveToTabButton;
     TerminalView* m_terminalView;
+    QTimer* m_startupThrottleTimer;
     bool m_isBroadcastSource;
 };

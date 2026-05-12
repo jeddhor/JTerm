@@ -2,6 +2,7 @@
 
 #include <QDialogButtonBox>
 #include <QFontDatabase>
+#include <QCheckBox>
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -63,12 +64,14 @@ private:
 };
 }
 
-StartupScriptDialog::StartupScriptDialog(const QString& paneTitle, const QString& initialScript, QWidget* parent)
+StartupScriptDialog::StartupScriptDialog(const QString& paneTitle, const QString& initialScript, bool initialThrottleEnabled, QWidget* parent)
     : QDialog(parent)
     , m_editor(new QPlainTextEdit(this))
     , m_infoLabel(new QLabel(this))
+    , m_throttleCheck(new QCheckBox(QStringLiteral("Throttle startup script steps"), this))
     , m_saveButton(new QPushButton(QStringLiteral("Save"), this))
-    , m_script(initialScript) {
+    , m_script(initialScript)
+    , m_throttleEnabled(initialThrottleEnabled) {
     setWindowTitle(QStringLiteral("Pane Startup Script"));
     resize(760, 520);
 
@@ -85,6 +88,10 @@ StartupScriptDialog::StartupScriptDialog(const QString& paneTitle, const QString
 
     m_infoLabel->setText(QStringLiteral("Pane: ") + paneTitle);
     rootLayout->addWidget(m_infoLabel);
+
+    m_throttleCheck->setChecked(initialThrottleEnabled);
+    m_throttleCheck->setToolTip(QStringLiteral("When enabled, each startup script line is sent with delay based on Settings throttle interval."));
+    rootLayout->addWidget(m_throttleCheck);
 
     QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
     mono.setPointSize(10);
@@ -122,7 +129,12 @@ QString StartupScriptDialog::script() const {
     return m_script;
 }
 
+bool StartupScriptDialog::throttleEnabled() const {
+    return m_throttleEnabled;
+}
+
 void StartupScriptDialog::saveAndClose() {
     m_script = m_editor->toPlainText();
+    m_throttleEnabled = m_throttleCheck->isChecked();
     accept();
 }

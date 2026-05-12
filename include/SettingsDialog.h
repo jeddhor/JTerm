@@ -42,6 +42,7 @@ private:
     QComboBox* m_colorSchemeCombo;
     QLineEdit* m_shellEdit;
     QSpinBox* m_maxPanesSpin;
+    QSpinBox* m_startupThrottleSpin;
     QCheckBox* m_confirmExitCheck;
     QCheckBox* m_warnStartupScriptsCheck;
     QCheckBox* m_autoSaveRestoreLayoutCheck;

@@ -433,6 +433,12 @@ void MainWindow::showSettingsDialogAtTab(SettingsDialog::InitialTab initialTab) 
     refreshLlmActionState();
     applyBroadcastAllOverrideState();
 
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+    for (TerminalPane* pane : panes) {
+        pane->setStartupThrottleIntervalSeconds(m_settings.startupScriptThrottleIntervalSeconds);
+    }
+
     if (m_llmChatDialog) {
         m_llmChatDialog->setSettings(m_settings);
     }
@@ -938,6 +944,7 @@ const MainWindow::TabInfo* MainWindow::currentTabInfo() const {
 TerminalPane* MainWindow::createPane(const QString& title, const QString& forcedPaneId) {
     const QString paneId = forcedPaneId.isEmpty() ? nextPaneId() : normalizePaneId(forcedPaneId);
     TerminalPane* pane = new TerminalPane(paneId, m_settings.defaultShell, this);
+    pane->setStartupThrottleIntervalSeconds(m_settings.startupScriptThrottleIntervalSeconds);
     if (!title.isEmpty()) {
         pane->setTitle(title);
     }
@@ -1303,12 +1310,13 @@ void MainWindow::editPaneStartupScript(TerminalPane* pane) {
         return;
     }
 
-    StartupScriptDialog dialog(pane->title(), pane->startupScript(), this);
+    StartupScriptDialog dialog(pane->title(), pane->startupScript(), pane->startupScriptThrottled(), this);
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
 
     pane->setStartupScript(dialog.script());
+    pane->setStartupScriptThrottled(dialog.throttleEnabled());
     setActivePane(pane);
     statusBar()->showMessage(QStringLiteral("Startup script saved to current layout state. Choose file destination in Save Layout dialog."), 3500);
     saveLayoutToFile();
@@ -1523,6 +1531,7 @@ QJsonObject MainWindow::serializeNode(QWidget* node) const {
         nodeObject.insert(QStringLiteral("type"), QStringLiteral("pane"));
         nodeObject.insert(QStringLiteral("id"), pane->paneId());
         nodeObject.insert(QStringLiteral("title"), pane->title());
+        nodeObject.insert(QStringLiteral("startupScriptThrottled"), pane->startupScriptThrottled());
         const QString startupScript = pane->startupScript();
         if (!startupScript.isEmpty()) {
             const QByteArray encoded = startupScript.toUtf8().toBase64();
@@ -1563,6 +1572,7 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
         TerminalPane* pane = createPane(paneTitle, paneId);
 
         const QString startupEncoded = nodeObject.value(QStringLiteral("startupScriptBase64")).toString();
+        pane->setStartupScriptThrottled(nodeObject.value(QStringLiteral("startupScriptThrottled")).toBool(false));
         if (!startupEncoded.isEmpty()) {
             const QByteArray decoded = QByteArray::fromBase64(startupEncoded.toLatin1());
             if (!decoded.isEmpty()) {

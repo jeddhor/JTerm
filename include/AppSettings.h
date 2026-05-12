@@ -10,6 +10,7 @@ struct AppSettings {
     bool warnOnLayoutStartupScripts = true;
     bool autoSaveRestoreLayout = false;
     bool broadcastAllOverride = false;
+    int startupScriptThrottleIntervalSeconds = 1;
 
     QString llmProvider;
     QString llmBaseUrl;

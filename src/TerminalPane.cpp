@@ -9,8 +9,10 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QtGlobal>
 
 TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWidget* parent)
     : QWidget(parent)
@@ -22,7 +24,11 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     , m_broadcastTargetCheck(new QCheckBox(this))
     , m_moveToTabButton(new QToolButton(this))
     , m_terminalView(new TerminalView(this))
+    , m_startupThrottleTimer(new QTimer(this))
     , m_isBroadcastSource(false) {
+    m_startupScriptThrottled = false;
+    m_startupThrottleIntervalSeconds = 1;
+
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* rootLayout = new QVBoxLayout(this);
     rootLayout->setContentsMargins(4, 4, 4, 4);
@@ -133,6 +139,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     connect(m_broadcastTargetCheck, &QCheckBox::toggled, this, [this](bool checked) {
         emit broadcastTargetToggled(this, checked);
     });
+    connect(m_startupThrottleTimer, &QTimer::timeout, this, &TerminalPane::runNextStartupStep);
+    m_startupThrottleTimer->setSingleShot(false);
 
     updateHeader();
 }
@@ -158,12 +166,53 @@ void TerminalPane::setStartupScript(const QString& script) {
     m_startupScript = script;
 }
 
+bool TerminalPane::startupScriptThrottled() const {
+    return m_startupScriptThrottled;
+}
+
+void TerminalPane::setStartupScriptThrottled(bool enabled) {
+    m_startupScriptThrottled = enabled;
+}
+
+void TerminalPane::setStartupThrottleIntervalSeconds(int seconds) {
+    m_startupThrottleIntervalSeconds = qMax(1, seconds);
+}
+
 void TerminalPane::runStartupScript() {
+    m_startupThrottleTimer->stop();
+    m_pendingStartupSteps.clear();
+
     if (m_startupScript.trimmed().isEmpty()) {
         return;
     }
 
-    m_terminalView->sendCommand(m_startupScript);
+    if (!m_startupScriptThrottled) {
+        m_terminalView->sendCommand(m_startupScript);
+        return;
+    }
+
+    const QStringList lines = m_startupScript.split(QLatin1Char('\n'));
+    for (const QString& line : lines) {
+        const QString step = line.trimmed();
+        if (!step.isEmpty()) {
+            m_pendingStartupSteps.append(step);
+        }
+    }
+    if (m_pendingStartupSteps.isEmpty()) {
+        return;
+    }
+
+    m_startupThrottleTimer->start(m_startupThrottleIntervalSeconds * 1000);
+}
+
+void TerminalPane::runNextStartupStep() {
+    if (m_pendingStartupSteps.isEmpty()) {
+        m_startupThrottleTimer->stop();
+        return;
+    }
+
+    const QString step = m_pendingStartupSteps.takeFirst();
+    m_terminalView->sendCommand(step);
 }
 
 bool TerminalPane::hasRunningProcess() const {
