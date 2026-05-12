@@ -718,6 +718,22 @@ void MainWindow::createMenus() {
     m_toggleMenuBarAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+M")));
     connect(m_toggleMenuBarAction, &QAction::toggled, this, &MainWindow::setMenuBarVisible);
     addAction(m_toggleMenuBarAction);
+
+    auto* llmMenu = menuBar()->addMenu(QStringLiteral("&LLM"));
+    m_askLlmAction = llmMenu->addAction(QStringLiteral("Ask the LLM..."), this, &MainWindow::showLlmChatDialog);
+    m_askLlmAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+L")));
+    m_askLlmAction->setEnabled(false);
+    m_askLlmAction->setToolTip(QStringLiteral("Configure LLM settings first."));
+    llmMenu->addSeparator();
+    llmMenu->addAction(QStringLiteral("LLM Settings..."), this, &MainWindow::showLlmSettingsDialog);
+
+    auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
+    helpMenu->addAction(QStringLiteral("Project on GitHub"), this, &MainWindow::openProjectGithubPage);
+    helpMenu->addSeparator();
+    helpMenu->addAction(QStringLiteral("About JTerm"), this, &MainWindow::showAboutDialog);
+}
+
+void MainWindow::setMenuBarVisible(bool visible) {
     if (menuBar()) {
         menuBar()->setVisible(visible);
     }
@@ -736,20 +752,6 @@ void MainWindow::createMenus() {
             ? QStringLiteral("Menu bar shown.")
             : QStringLiteral("Menu bar hidden. Use Ctrl+Shift+M to show it again."),
         2500);
-}
-
-    auto* llmMenu = menuBar()->addMenu(QStringLiteral("&LLM"));
-    m_askLlmAction = llmMenu->addAction(QStringLiteral("Ask the LLM..."), this, &MainWindow::showLlmChatDialog);
-    m_askLlmAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+L")));
-    m_askLlmAction->setEnabled(false);
-    m_askLlmAction->setToolTip(QStringLiteral("Configure LLM settings first."));
-    llmMenu->addSeparator();
-    llmMenu->addAction(QStringLiteral("LLM Settings..."), this, &MainWindow::showLlmSettingsDialog);
-
-    auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
-    helpMenu->addAction(QStringLiteral("Project on GitHub"), this, &MainWindow::openProjectGithubPage);
-    helpMenu->addSeparator();
-    helpMenu->addAction(QStringLiteral("About JTerm"), this, &MainWindow::showAboutDialog);
 }
 
 void MainWindow::refreshLlmActionState() {
