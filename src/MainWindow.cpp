@@ -356,7 +356,7 @@ void MainWindow::showAboutDialog() {
 
     QPixmap logo(logoPath);
     if (!logo.isNull()) {
-        box.setIconPixmap(logo.scaled(320, 320, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        box.setIconPixmap(logo.scaled(480, 480, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
         box.setIcon(QMessageBox::Information);
     }
