@@ -1,142 +1,186 @@
-# JTerm (Qt6 C++ Terminal Emulator)
+# JTerm
 
 ![JTerm Logo](assets/JTerm_logo.png)
 
-JTerm (Jason's Terminal) is a Linux-first, Qt6-based split-pane terminal emulator that uses a real PTY/TTY backend via QTermWidget.
+JTerm (Jason's Terminal) is a Qt6 split-pane terminal emulator focused on fast keyboard workflows, workspace layouts, and practical terminal automation.
 
-## Features
+It uses QTermWidget for real terminal behavior, adds a modern pane-and-tab workflow, and includes optional built-in LLM assistance for shell tasks.
 
-- Flexible pane splitting:
-  - Horizontal and vertical splits
-  - Nested split tree supports complex layouts (for example, 12 equal panes or mixed asymmetric grids)
-- Tabbed workspaces:
-  - Multiple tabs, each with its own split layout
-  - Tab IDs and user-editable tab titles
-- Pane metadata:
-  - Freeform user-editable pane titles
-  - Unique pane IDs
-- Pane controls:
-  - Right-click menu for copy/paste/select-all
-  - Right-click rename, split, and close terminal actions
-  - Right-click startup script editor (shell syntax highlighting)
-  - Middle-click paste (primary selection)
-  - Closing panes auto-reflows remaining panes
-  - Splitter snapping helps align pane boundaries when dragged near nearby pane edges
-- Layout save/load:
-  - Save pane tree + splitter geometry to `.json`
-  - Load `.json` layouts
-  - Edit current layout JSON in an in-app editor with syntax highlighting, live validation, format action, and Save As
-- Built-in settings dialog:
-  - Terminal color scheme (QTermWidget built-in schemes)
-  - Default shell selection
-  - Maximum pane count
-  - Exit and layout safety confirmations
-  - LLM provider configuration (Ollama or OpenAI-compatible)
-  - LLM configuration verification before saving
-- LLM assistant integration:
-  - `LLM -> Ask the LLM...` opens a non-modal chat window
-  - Continuous chat context while the window is open
-  - Markdown-rendered responses
-  - Enter to send, Shift+Enter for newline
-  - Fast copy actions for transcript and last reply
-- Appearance:
-  - Uses the OS desktop theme and native Qt appearance
-  - Terminal rendering uses a dark xterm-like color profile
-- Standard edit operations:
-  - Copy / Paste / Select All for active pane
-- Command-line remote command bridge:
-  - Send a command to a running pane by `--pane-id` or `--pane-title`
+## Why JTerm
+
+- Real terminal backend, not a fake terminal simulation.
+- Split panes and tabs that can be reshaped quickly.
+- Save/load/edit layout JSON, including startup scripts and focused pane restoration.
+- Built-in safeguards for risky actions (close confirmations, startup command warnings).
+- Optional LLM shell helper (Ollama or OpenAI-compatible endpoints).
+
+## Highlights
+
+### Workspace And Panes
+
+- Horizontal and vertical pane splitting.
+- Nested split trees for complex arrangements.
+- Tabbed workspaces with rename support.
+- Pane rename, close, move-to-new-tab, and auto-arrange.
+- Browser-style + tab button on the tab row.
+- Pane header indicators:
+  - ⚡ pane has startup commands
+  - ◎ broadcast target
+  - ↗ move pane to a new tab
+
+### Safety And Session Flow
+
+- Optional confirmation when exiting with multiple panes/tabs.
+- Warn before loading layouts that include startup commands.
+- Running-process close warnings for pane/tab/app close.
+- Optional auto-save and restore of workspace layout on next launch.
+
+### Layout Power
+
+- Save current layout to JSON.
+- Load layout JSON from UI or CLI.
+- In-app JSON editor with validation and formatting.
+- Startup script editing per pane.
+- Focus persistence via current pane and current tab IDs.
+
+### Broadcast Mode
+
+- Mark one pane as Broadcast Source from the pane context menu.
+- Mark one or more panes as Broadcast Target using header glyph checkboxes.
+- Keystrokes in source pane are echoed to selected targets.
+- Optional settings override to force broadcast-all targets.
+
+### LLM Shell Helper
+
+- Non-modal chat window so terminals stay interactive.
+- Markdown-rendered streaming responses.
+- Enter sends, Shift+Enter inserts newline.
+- Quick copy actions for transcript and last reply.
+- LLM providers:
+  - Ollama
+  - OpenAI-compatible API endpoints
+- Built-in LLM settings verification in Preferences.
 
 ## Build Requirements
 
-- `g++` with C++20 support
-- `make`
-- `pkg-config`
-- Qt6 development packages:
-  - Core
-  - Gui
-  - Widgets
-  - Network
-- QTermWidget development package (`qtermwidget6`)
-- Qt Meta-Object Compiler (`moc` or `moc-qt6`)
+- g++ with C++20 support
+- make
+- pkg-config
+- Qt6 dev libraries:
+  - Qt6Core
+  - Qt6Gui
+  - Qt6Widgets
+  - Qt6Network
+- QTermWidget dev package
+- Qt moc (moc or moc-qt6)
 
-## Ubuntu Packages
+## Ubuntu Setup
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential make pkg-config qt6-base-dev qt6-base-dev-tools libqtermwidget6-2-dev
 ```
 
-On some Ubuntu releases, the package may be named `libqtermwidget6-dev` instead.
+Depending on distro version, QTermWidget package may be named libqtermwidget6-dev.
 
-If launch or link errors mention `utf8proc`, install:
+If runtime errors mention utf8proc:
 
 ```bash
 sudo apt install -y libutf8proc3
 ```
 
-For better desktop integration on Ubuntu/KDE environments, these are recommended:
+Optional desktop integration extras:
 
 ```bash
 sudo apt install -y qdbus-qt6 qt6-gtk-platformtheme qt6-wayland
 ```
 
-## Build
+## Build And Run
 
 ```bash
 make
-```
-
-## Run
-
-```bash
 ./jterm
 ```
 
-On Windows with MinGW, executable is `jterm.exe`.
+On Windows (MinGW), executable is jterm.exe.
 
-### Start With A Layout File
+## Command Line Usage
+
+### Start With Layout
 
 ```bash
 ./jterm --layout ./layout.json
 ```
 
-## Remote CLI Usage
+### Send Command To Running Instance
 
-Send a command to a running JTerm instance:
+By pane ID:
 
 ```bash
 ./jterm --send "ls -la" --pane-id 3
 ```
 
-Or by pane title:
+By pane title:
 
 ```bash
 ./jterm --send "pwd" --pane-title "Logs"
 ```
 
-If no running instance is listening, the CLI command returns an error.
-
-## Startup Script Encoding CLI
-
-Generate a base64 payload for `startupScriptBase64` from a script file:
+### Encode Startup Script For JSON
 
 ```bash
 ./jterm --encode-startup-script ./startup.sh
 ```
 
-## Layout JSON Shape
+## Menus And Useful Shortcuts
 
-Saved layout JSON contains:
+- LLM chat: Ctrl+Shift+L
+- Toggle menu bar: Ctrl+Shift+M
+- New tab: Ctrl+T
+- Close tab: Ctrl+W
+- Split horizontally: Ctrl+Shift+H
+- Split vertically: Ctrl+Shift+V
+- Rename pane: Ctrl+Shift+R
+- Auto-arrange panes: Ctrl+Shift+A
+- Preferences: Ctrl+,
 
-- `version`
-- optional `currentTabId`
-- optional `currentPaneId` (restores focused pane and switches to its tab on load)
-- `tabs` array:
-  - each tab has `id`, `title`, and `root`
-- each `root` node:
-  - `type: pane` with `id` + `title`
-    - optional `startupScriptBase64` (base64-encoded shell script to auto-execute when pane is loaded from layout JSON)
-  - `type: splitter` with `orientation`, `sizes`, and `children`
+## Configuration And Data
 
-This preserves nested split structure and pane metadata.
+JTerm uses QSettings for app preferences and stores auto-saved layout snapshots in the user config area.
+
+- Auto-save layout snapshot path uses AppConfigLocation plus:
+  - jterm/layout-autosave.json
+
+On Linux this typically resolves under ~/.config.
+
+## Layout JSON Reference
+
+Top-level fields:
+
+- version
+- currentTabId (optional)
+- currentPaneId (optional)
+- tabs (array)
+
+Each tab object:
+
+- id
+- title
+- root
+
+Node types:
+
+- pane
+  - id
+  - title
+  - startupScriptBase64 (optional)
+- splitter
+  - orientation (horizontal or vertical)
+  - sizes
+  - children
+
+When currentPaneId is present, JTerm restores focus to that pane and switches to the tab containing it.
+
+## License
+
+MIT. See LICENSE.
