@@ -44,6 +44,7 @@ private slots:
     void showLlmSettingsDialog();
     void showSettingsDialog();
     void resetWindowLayout();
+    void setMenuBarVisible(bool visible);
     void applyTheme(const QString& themeName);
     void handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command);
     void onTabCloseRequested(int index);
@@ -124,6 +125,7 @@ private:
     AppSettings m_settings;
     CommandServer* m_commandServer;
     QAction* m_askLlmAction;
+    QAction* m_toggleMenuBarAction;
     LlmChatDialog* m_llmChatDialog;
     QToolButton* m_newTabButton;
     TerminalPane* m_broadcastSourcePane;

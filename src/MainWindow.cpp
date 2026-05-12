@@ -49,6 +49,7 @@ MainWindow::MainWindow(QWidget* parent)
     , m_settings(SettingsStore::load())
     , m_commandServer(new CommandServer(this))
     , m_askLlmAction(nullptr)
+    , m_toggleMenuBarAction(nullptr)
     , m_llmChatDialog(nullptr)
     , m_newTabButton(nullptr)
     , m_broadcastSourcePane(nullptr)
@@ -710,6 +711,32 @@ void MainWindow::createMenus() {
     windowTabMenu->addAction(QStringLiteral("Auto-Arrange Panes"), QKeySequence(QStringLiteral("Ctrl+Shift+A")), this, &MainWindow::autoArrangeCurrentTabPanes);
     windowMenu->addSeparator();
     windowMenu->addAction(QStringLiteral("Reset Window"), this, &MainWindow::resetWindowLayout);
+    windowMenu->addSeparator();
+    m_toggleMenuBarAction = windowMenu->addAction(QStringLiteral("Show Menu Bar"));
+    m_toggleMenuBarAction->setCheckable(true);
+    m_toggleMenuBarAction->setChecked(true);
+    m_toggleMenuBarAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+M")));
+    connect(m_toggleMenuBarAction, &QAction::toggled, this, &MainWindow::setMenuBarVisible);
+    addAction(m_toggleMenuBarAction);
+    if (menuBar()) {
+        menuBar()->setVisible(visible);
+    }
+
+    if (centralWidget()) {
+        centralWidget()->updateGeometry();
+        centralWidget()->adjustSize();
+    }
+    if (m_tabWidget) {
+        m_tabWidget->updateGeometry();
+        m_tabWidget->update();
+    }
+
+    statusBar()->showMessage(
+        visible
+            ? QStringLiteral("Menu bar shown.")
+            : QStringLiteral("Menu bar hidden. Use Ctrl+Shift+M to show it again."),
+        2500);
+}
 
     auto* llmMenu = menuBar()->addMenu(QStringLiteral("&LLM"));
     m_askLlmAction = llmMenu->addAction(QStringLiteral("Ask the LLM..."), this, &MainWindow::showLlmChatDialog);
