@@ -36,6 +36,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <cmath>
 #include <QtGlobal>
 #include <QUrl>
 
@@ -221,6 +222,116 @@ void MainWindow::closeCurrentTab() {
 
 void MainWindow::renameCurrentTab() {
     renameTabByIndex(m_tabWidget->currentIndex());
+}
+
+void MainWindow::autoArrangeCurrentTabPanes() {
+    QWidget* page = currentTabPage();
+    TabInfo* info = tabInfoForPage(page);
+    if (!page || !info || !info->rootNode) {
+        return;
+    }
+
+    QList<TerminalPane*> panes;
+    collectPanes(info->rootNode, panes);
+    if (panes.size() <= 1) {
+        statusBar()->showMessage(QStringLiteral("Auto-arrange needs at least two panes."), 2500);
+        return;
+    }
+
+    for (TerminalPane* pane : panes) {
+        pane->setParent(nullptr);
+    }
+
+    QWidget* oldRoot = info->rootNode;
+    if (page->layout()) {
+        page->layout()->removeWidget(oldRoot);
+    }
+    oldRoot->setParent(nullptr);
+    oldRoot->deleteLater();
+
+    const int count = panes.size();
+    const int columns = qMax(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(count)))));
+    const int rows = qMax(1, static_cast<int>(std::ceil(static_cast<double>(count) / columns)));
+
+    auto configureEqualSizes = [](QSplitter* splitter) {
+        if (!splitter || splitter->count() <= 0) {
+            return;
+        }
+        QList<int> sizes;
+        sizes.reserve(splitter->count());
+        for (int i = 0; i < splitter->count(); ++i) {
+            splitter->setStretchFactor(i, 1);
+            sizes.append(1000);
+        }
+        splitter->setSizes(sizes);
+    };
+
+    QWidget* newRoot = nullptr;
+    int paneIndex = 0;
+    if (rows == 1) {
+        if (count == 2) {
+            auto* rowSplitter = new SnapSplitter(Qt::Horizontal, page, page);
+            rowSplitter->setChildrenCollapsible(false);
+            rowSplitter->addWidget(panes[paneIndex++]);
+            rowSplitter->addWidget(panes[paneIndex++]);
+            configureEqualSizes(rowSplitter);
+            newRoot = rowSplitter;
+        } else {
+            auto* rowSplitter = new SnapSplitter(Qt::Horizontal, page, page);
+            rowSplitter->setChildrenCollapsible(false);
+            while (paneIndex < count) {
+                rowSplitter->addWidget(panes[paneIndex++]);
+            }
+            configureEqualSizes(rowSplitter);
+            newRoot = rowSplitter;
+        }
+    } else {
+        auto* topSplitter = new SnapSplitter(Qt::Vertical, page, page);
+        topSplitter->setChildrenCollapsible(false);
+
+        const int basePerRow = count / rows;
+        const int extraRows = count % rows;
+        for (int row = 0; row < rows; ++row) {
+            const int rowCount = basePerRow + (row < extraRows ? 1 : 0);
+            if (rowCount <= 0) {
+                continue;
+            }
+
+            QWidget* rowNode = nullptr;
+            if (rowCount == 1) {
+                rowNode = panes[paneIndex++];
+            } else {
+                auto* rowSplitter = new SnapSplitter(Qt::Horizontal, page, page);
+                rowSplitter->setChildrenCollapsible(false);
+                for (int c = 0; c < rowCount && paneIndex < count; ++c) {
+                    rowSplitter->addWidget(panes[paneIndex++]);
+                }
+                configureEqualSizes(rowSplitter);
+                rowNode = rowSplitter;
+            }
+            if (rowNode) {
+                topSplitter->addWidget(rowNode);
+            }
+        }
+
+        configureEqualSizes(topSplitter);
+        newRoot = topSplitter;
+    }
+
+    if (!newRoot) {
+        return;
+    }
+
+    newRoot->setParent(page);
+    page->layout()->addWidget(newRoot);
+    info->rootNode = newRoot;
+    applySnapScope(newRoot, page);
+
+    setActivePane(panes.first());
+    refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
+    focusActivePaneTerminal();
+    statusBar()->showMessage(QStringLiteral("Panes auto-arranged."), 2200);
 }
 
 void MainWindow::saveLayoutToFile() {
@@ -596,6 +707,7 @@ void MainWindow::createMenus() {
     windowTabMenu->addAction(QStringLiteral("New Tab"), QKeySequence(QStringLiteral("Ctrl+T")), this, &MainWindow::createNewTab);
     windowTabMenu->addAction(QStringLiteral("Rename Tab..."), QKeySequence(QStringLiteral("Ctrl+Alt+R")), this, &MainWindow::renameCurrentTab);
     windowTabMenu->addAction(QStringLiteral("Close Tab"), QKeySequence(QStringLiteral("Ctrl+W")), this, &MainWindow::closeCurrentTab);
+    windowTabMenu->addAction(QStringLiteral("Auto-Arrange Panes"), QKeySequence(QStringLiteral("Ctrl+Shift+A")), this, &MainWindow::autoArrangeCurrentTabPanes);
     windowMenu->addSeparator();
     windowMenu->addAction(QStringLiteral("Reset Window"), this, &MainWindow::resetWindowLayout);
 

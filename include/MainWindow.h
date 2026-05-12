@@ -34,6 +34,7 @@ private slots:
     void createNewTab();
     void closeCurrentTab();
     void renameCurrentTab();
+    void autoArrangeCurrentTabPanes();
     void editLayoutJson();
     void saveLayoutToFile();
     void loadLayoutFromFile();
