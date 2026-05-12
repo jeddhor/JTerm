@@ -15,6 +15,8 @@
 #include <QByteArray>
 #include <QCloseEvent>
 #include <QDesktopServices>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -24,6 +26,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLayout>
+#include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -530,8 +533,13 @@ void MainWindow::openProjectGithubPage() {
 }
 
 void MainWindow::showAboutDialog() {
-    QMessageBox box(this);
-    box.setWindowTitle(QStringLiteral("About JTerm"));
+    QDialog dialog(this);
+    dialog.setWindowTitle(QStringLiteral("About JTerm"));
+    dialog.resize(820, 980);
+
+    auto* rootLayout = new QVBoxLayout(&dialog);
+    rootLayout->setContentsMargins(16, 16, 16, 16);
+    rootLayout->setSpacing(12);
 
     QString logoPath = QCoreApplication::applicationDirPath() + QStringLiteral("/assets/JTerm_logo.png");
     if (!QFileInfo::exists(logoPath)) {
@@ -541,20 +549,34 @@ void MainWindow::showAboutDialog() {
         logoPath = QStringLiteral("assets/JTerm_logo.png");
     }
 
+    auto* logoLabel = new QLabel(&dialog);
+    logoLabel->setAlignment(Qt::AlignCenter);
+
     QPixmap logo(logoPath);
     if (!logo.isNull()) {
-        box.setIconPixmap(logo.scaled(480, 480, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+        logoLabel->setPixmap(logo.scaled(760, 760, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
-        box.setIcon(QMessageBox::Information);
+        logoLabel->setText(QStringLiteral("JTerm"));
     }
 
-    box.setText(QStringLiteral("JTerm"));
-    box.setInformativeText(
-        QStringLiteral("JTerm (Jason's Terminal)\n"
-                       "A Qt6 split-pane and tabbed terminal emulator with layout JSON editing,\n"
-                       "startup scripts, and command routing to panes."));
-    box.setStandardButtons(QMessageBox::Ok);
-    box.exec();
+    auto* textLabel = new QLabel(
+        QStringLiteral("<h2>JTerm</h2>"
+                       "<p>JTerm (Jason's Terminal) is a Qt6 split-pane and tabbed terminal emulator with layout JSON editing, startup scripts, and pane-targeted command routing.</p>"
+                       "<p><b>License:</b> MIT License (see LICENSE)</p>"),
+        &dialog);
+    textLabel->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
+    textLabel->setWordWrap(true);
+    textLabel->setTextFormat(Qt::RichText);
+
+    auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+
+    rootLayout->addWidget(logoLabel, 0, Qt::AlignHCenter);
+    rootLayout->addWidget(textLabel, 0, Qt::AlignHCenter);
+    rootLayout->addStretch(1);
+    rootLayout->addWidget(buttonBox);
+
+    dialog.exec();
 }
 
 void MainWindow::applyTheme(const QString& themeName) {
@@ -728,7 +750,7 @@ void MainWindow::createMenus() {
     llmMenu->addAction(QStringLiteral("LLM Settings..."), this, &MainWindow::showLlmSettingsDialog);
 
     auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
-    helpMenu->addAction(QStringLiteral("Project on GitHub"), this, &MainWindow::openProjectGithubPage);
+    helpMenu->addAction(QStringLiteral("JTerm on GitHub"), this, &MainWindow::openProjectGithubPage);
     helpMenu->addSeparator();
     helpMenu->addAction(QStringLiteral("About JTerm"), this, &MainWindow::showAboutDialog);
 }
