@@ -21,7 +21,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
-SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* parent)
+SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* parent, InitialTab initialTab)
     : QDialog(parent)
     , m_tabs(new QTabWidget(this))
     , m_colorSchemeCombo(new QComboBox(this))
@@ -127,6 +127,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
 
     m_tabs->addTab(generalTab, QStringLiteral("General"));
     m_tabs->addTab(llmTab, QStringLiteral("LLM"));
+    m_tabs->setCurrentIndex(initialTab == InitialTab::Llm ? 1 : 0);
 
     rootLayout->addWidget(m_tabs, 1);
 

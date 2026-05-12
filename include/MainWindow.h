@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AppSettings.h"
+#include "SettingsDialog.h"
 
 #include <QHash>
 #include <QJsonObject>
@@ -39,7 +40,9 @@ private slots:
     void openProjectGithubPage();
     void showAboutDialog();
     void showLlmChatDialog();
+    void showLlmSettingsDialog();
     void showSettingsDialog();
+    void resetWindowLayout();
     void applyTheme(const QString& themeName);
     void handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command);
     void onTabCloseRequested(int index);
@@ -103,6 +106,7 @@ private:
     void refreshLlmActionState();
     void focusActivePaneTerminal();
     void refreshMoveToTabButtonVisibility();
+    void showSettingsDialogAtTab(SettingsDialog::InitialTab initialTab);
     void toggleBroadcastSource(TerminalPane* pane);
     void applyBroadcastAllOverrideState();
     void clearBroadcastState();

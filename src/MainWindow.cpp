@@ -287,7 +287,15 @@ void MainWindow::editLayoutJson() {
 }
 
 void MainWindow::showSettingsDialog() {
-    SettingsDialog dialog(m_settings, this);
+    showSettingsDialogAtTab(SettingsDialog::InitialTab::General);
+}
+
+void MainWindow::showLlmSettingsDialog() {
+    showSettingsDialogAtTab(SettingsDialog::InitialTab::Llm);
+}
+
+void MainWindow::showSettingsDialogAtTab(SettingsDialog::InitialTab initialTab) {
+    SettingsDialog dialog(m_settings, this, initialTab);
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
@@ -312,6 +320,69 @@ void MainWindow::showSettingsDialog() {
     if (m_llmChatDialog) {
         m_llmChatDialog->setSettings(m_settings);
     }
+}
+
+void MainWindow::resetWindowLayout() {
+    if (!m_activePane) {
+        return;
+    }
+
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+
+    QList<TerminalPane*> closingPanes;
+    for (TerminalPane* pane : panes) {
+        if (pane != m_activePane) {
+            closingPanes.append(pane);
+        }
+    }
+
+    if (closingPanes.isEmpty()) {
+        return;
+    }
+
+    QList<TerminalPane*> runningClosingPanes = busyPanes(closingPanes);
+    if (!runningClosingPanes.isEmpty() && !confirmCloseBusyPanes(runningClosingPanes, QStringLiteral("window reset"))) {
+        return;
+    }
+
+    const QMessageBox::StandardButton confirm = QMessageBox::warning(
+        this,
+        QStringLiteral("Reset Window"),
+        QStringLiteral("Reset Window will close all panes and tabs except the active terminal. Continue?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (confirm != QMessageBox::Yes) {
+        return;
+    }
+
+    m_activePane->setParent(nullptr);
+
+    while (m_tabWidget->count() > 0) {
+        QWidget* page = m_tabWidget->widget(0);
+        m_tabInfos.remove(page);
+        m_tabWidget->removeTab(0);
+        page->deleteLater();
+    }
+
+    QWidget* page = createTabPage(QStringLiteral("1"), QStringLiteral("Tab 1"), m_activePane);
+    m_tabWidget->setCurrentWidget(page);
+
+    m_usedPaneIds.clear();
+    m_usedTabIds.clear();
+    m_nextPaneCounter = 1;
+    m_nextTabCounter = 1;
+    m_usedTabIds.insert(QStringLiteral("1"));
+    m_nextTabCounter = 2;
+    const QString activePaneId = m_activePane->paneId();
+    m_usedPaneIds.insert(activePaneId);
+
+    clearBroadcastState();
+    setActivePane(m_activePane);
+    syncActivePaneToCurrentTab();
+    refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
+    focusActivePaneTerminal();
 }
 
 void MainWindow::showLlmChatDialog() {
@@ -495,12 +566,12 @@ void MainWindow::createMenus() {
     fileMenu->addAction(QStringLiteral("Exit"), QKeySequence(QStringLiteral("Ctrl+Q")), this, &QWidget::close);
 
     auto* editMenu = menuBar()->addMenu(QStringLiteral("&Edit"));
-    editMenu->addAction(QStringLiteral("Copy"), QKeySequence::Copy, this, [this]() {
+    editMenu->addAction(QStringLiteral("⎘ Copy"), QKeySequence::Copy, this, [this]() {
         if (m_activePane) {
             m_activePane->terminalView()->copy();
         }
     });
-    editMenu->addAction(QStringLiteral("Paste"), QKeySequence::Paste, this, [this]() {
+    editMenu->addAction(QStringLiteral("📋 Paste"), QKeySequence::Paste, this, [this]() {
         if (m_activePane) {
             m_activePane->terminalView()->paste();
         }
@@ -510,26 +581,31 @@ void MainWindow::createMenus() {
             m_activePane->terminalView()->selectAll();
         }
     });
+    editMenu->addSeparator();
+    editMenu->addAction(QStringLiteral("Preferences..."), QKeySequence(QStringLiteral("Ctrl+,")), this, &MainWindow::showSettingsDialog);
 
-    auto* paneMenu = menuBar()->addMenu(QStringLiteral("&Pane"));
-    paneMenu->addAction(QStringLiteral("Split Horizontally"), QKeySequence(QStringLiteral("Ctrl+Shift+H")), this, &MainWindow::splitActivePaneHorizontal);
-    paneMenu->addAction(QStringLiteral("Split Vertically"), QKeySequence(QStringLiteral("Ctrl+Shift+V")), this, &MainWindow::splitActivePaneVertical);
-    paneMenu->addAction(QStringLiteral("Rename Pane..."), QKeySequence(QStringLiteral("Ctrl+Shift+R")), this, &MainWindow::renameActivePane);
-    paneMenu->addAction(QStringLiteral("Close Terminal"), QKeySequence(QStringLiteral("Ctrl+Shift+W")), this, &MainWindow::closeActivePane);
+    auto* windowMenu = menuBar()->addMenu(QStringLiteral("&Window"));
+    auto* windowPaneMenu = windowMenu->addMenu(QStringLiteral("Pane"));
+    auto* windowTabMenu = windowMenu->addMenu(QStringLiteral("Tab"));
 
-    auto* tabMenu = menuBar()->addMenu(QStringLiteral("&Tab"));
-    tabMenu->addAction(QStringLiteral("New Tab"), QKeySequence(QStringLiteral("Ctrl+T")), this, &MainWindow::createNewTab);
-    tabMenu->addAction(QStringLiteral("Rename Tab..."), QKeySequence(QStringLiteral("Ctrl+Alt+R")), this, &MainWindow::renameCurrentTab);
-    tabMenu->addAction(QStringLiteral("Close Tab"), QKeySequence(QStringLiteral("Ctrl+W")), this, &MainWindow::closeCurrentTab);
+    windowPaneMenu->addAction(QStringLiteral("Split Horizontally"), QKeySequence(QStringLiteral("Ctrl+Shift+H")), this, &MainWindow::splitActivePaneHorizontal);
+    windowPaneMenu->addAction(QStringLiteral("Split Vertically"), QKeySequence(QStringLiteral("Ctrl+Shift+V")), this, &MainWindow::splitActivePaneVertical);
+    windowPaneMenu->addAction(QStringLiteral("Rename Pane..."), QKeySequence(QStringLiteral("Ctrl+Shift+R")), this, &MainWindow::renameActivePane);
+    windowPaneMenu->addAction(QStringLiteral("Close Terminal"), QKeySequence(QStringLiteral("Ctrl+Shift+W")), this, &MainWindow::closeActivePane);
 
-    auto* settingsMenu = menuBar()->addMenu(QStringLiteral("&Settings"));
-    settingsMenu->addAction(QStringLiteral("Preferences..."), QKeySequence(QStringLiteral("Ctrl+,")), this, &MainWindow::showSettingsDialog);
+    windowTabMenu->addAction(QStringLiteral("New Tab"), QKeySequence(QStringLiteral("Ctrl+T")), this, &MainWindow::createNewTab);
+    windowTabMenu->addAction(QStringLiteral("Rename Tab..."), QKeySequence(QStringLiteral("Ctrl+Alt+R")), this, &MainWindow::renameCurrentTab);
+    windowTabMenu->addAction(QStringLiteral("Close Tab"), QKeySequence(QStringLiteral("Ctrl+W")), this, &MainWindow::closeCurrentTab);
+    windowMenu->addSeparator();
+    windowMenu->addAction(QStringLiteral("Reset Window"), this, &MainWindow::resetWindowLayout);
 
     auto* llmMenu = menuBar()->addMenu(QStringLiteral("&LLM"));
     m_askLlmAction = llmMenu->addAction(QStringLiteral("Ask the LLM..."), this, &MainWindow::showLlmChatDialog);
     m_askLlmAction->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+L")));
     m_askLlmAction->setEnabled(false);
     m_askLlmAction->setToolTip(QStringLiteral("Configure LLM settings first."));
+    llmMenu->addSeparator();
+    llmMenu->addAction(QStringLiteral("LLM Settings..."), this, &MainWindow::showLlmSettingsDialog);
 
     auto* helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
     helpMenu->addAction(QStringLiteral("Project on GitHub"), this, &MainWindow::openProjectGithubPage);
@@ -604,6 +680,11 @@ void MainWindow::applyBroadcastAllOverrideState() {
 }
 
 void MainWindow::clearBroadcastState() {
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+    for (TerminalPane* pane : panes) {
+        pane->setBroadcastSourceSelected(false);
+    }
     m_broadcastSourcePane = nullptr;
 }
 
@@ -1593,6 +1674,12 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::activated, this, &MainWindow::setActivePane);
     connect(pane, &TerminalPane::closeRequested, this, &MainWindow::closePane);
     connect(pane, &TerminalPane::renameRequested, this, &MainWindow::renamePane);
+    connect(pane, &TerminalPane::renameTabRequested, this, [this](TerminalPane* sourcePane) {
+        if (sourcePane) {
+            setActivePane(sourcePane);
+        }
+        renameCurrentTab();
+    });
     connect(pane, &TerminalPane::moveToNewTabRequested, this, &MainWindow::movePaneToNewTab);
     connect(pane, &TerminalPane::broadcastSourceToggleRequested, this, &MainWindow::toggleBroadcastSource);
     connect(pane, &TerminalPane::broadcastTargetToggled, this, [this](TerminalPane* sourcePane, bool checked) {

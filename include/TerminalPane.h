@@ -33,6 +33,7 @@ signals:
     void activated(TerminalPane* pane);
     void closeRequested(TerminalPane* pane);
     void renameRequested(TerminalPane* pane);
+    void renameTabRequested(TerminalPane* pane);
     void startupScriptRequested(TerminalPane* pane);
     void preferencesRequested(TerminalPane* pane);
     void copyRequested(TerminalPane* pane);

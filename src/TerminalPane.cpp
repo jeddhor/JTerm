@@ -70,19 +70,22 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
         emit activated(this);
 
         QMenu menu(this);
-        QAction* copyAction = menu.addAction(QStringLiteral("Copy"));
-        QAction* pasteAction = menu.addAction(QStringLiteral("Paste"));
+        QAction* copyAction = menu.addAction(QStringLiteral("⎘ Copy"));
+        QAction* pasteAction = menu.addAction(QStringLiteral("📋 Paste"));
         QAction* selectAllAction = menu.addAction(QStringLiteral("Select All"));
+        menu.addSeparator();
+        QAction* renameTabAction = menu.addAction(QStringLiteral("Rename Tab..."));
         menu.addSeparator();
         QAction* splitHorizontalAction = menu.addAction(QStringLiteral("Split Horizontally"));
         QAction* splitVerticalAction = menu.addAction(QStringLiteral("Split Vertically"));
+        QAction* moveToTabAction = menu.addAction(QStringLiteral("Move To New Tab"));
+        QAction* closeAction = menu.addAction(QStringLiteral("Close Terminal"));
+        menu.addSeparator();
         QAction* broadcastSourceAction = menu.addAction(QStringLiteral("Broadcast Source"));
         broadcastSourceAction->setCheckable(true);
         broadcastSourceAction->setChecked(m_isBroadcastSource);
-        QAction* moveToTabAction = menu.addAction(QStringLiteral("Move To New Tab"));
-        QAction* renameAction = menu.addAction(QStringLiteral("Rename Pane..."));
+        menu.addSeparator();
         QAction* startupScriptAction = menu.addAction(QStringLiteral("Edit Startup Script..."));
-        QAction* closeAction = menu.addAction(QStringLiteral("Close Terminal"));
         menu.addSeparator();
         QAction* preferencesAction = menu.addAction(QStringLiteral("Preferences..."));
 
@@ -97,6 +100,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit pasteRequested(this);
         } else if (chosen == selectAllAction) {
             emit selectAllRequested(this);
+        } else if (chosen == renameTabAction) {
+            emit renameTabRequested(this);
         } else if (chosen == splitHorizontalAction) {
             emit splitRequested(this, Qt::Vertical);
         } else if (chosen == splitVerticalAction) {
@@ -105,8 +110,6 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit broadcastSourceToggleRequested(this);
         } else if (chosen == moveToTabAction) {
             emit moveToNewTabRequested(this);
-        } else if (chosen == renameAction) {
-            emit renameRequested(this);
         } else if (chosen == startupScriptAction) {
             emit startupScriptRequested(this);
         } else if (chosen == closeAction) {

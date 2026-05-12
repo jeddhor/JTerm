@@ -18,7 +18,12 @@ class SettingsDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit SettingsDialog(const AppSettings& initialSettings, QWidget* parent = nullptr);
+    enum class InitialTab {
+        General,
+        Llm
+    };
+
+    explicit SettingsDialog(const AppSettings& initialSettings, QWidget* parent = nullptr, InitialTab initialTab = InitialTab::General);
 
     AppSettings settings() const;
 
