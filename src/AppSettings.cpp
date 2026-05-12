@@ -32,6 +32,7 @@ AppSettings load() {
     result.confirmOnMultiPaneExit = settings.value(QStringLiteral("ui/confirmOnMultiPaneExit"), true).toBool();
     result.warnOnLayoutStartupScripts = settings.value(QStringLiteral("ui/warnOnLayoutStartupScripts"), true).toBool();
     result.autoSaveRestoreLayout = settings.value(QStringLiteral("layout/autoSaveRestore"), false).toBool();
+    result.broadcastAllOverride = settings.value(QStringLiteral("broadcast/allOverride"), false).toBool();
     result.llmProvider = settings.value(QStringLiteral("llm/provider"), QString()).toString().trimmed().toLower();
     result.llmBaseUrl = settings.value(QStringLiteral("llm/baseUrl"), QString()).toString().trimmed();
     result.llmModel = settings.value(QStringLiteral("llm/model"), QString()).toString().trimmed();
@@ -61,6 +62,7 @@ void save(const AppSettings& settingsData) {
     settings.setValue(QStringLiteral("ui/confirmOnMultiPaneExit"), settingsData.confirmOnMultiPaneExit);
     settings.setValue(QStringLiteral("ui/warnOnLayoutStartupScripts"), settingsData.warnOnLayoutStartupScripts);
     settings.setValue(QStringLiteral("layout/autoSaveRestore"), settingsData.autoSaveRestoreLayout);
+    settings.setValue(QStringLiteral("broadcast/allOverride"), settingsData.broadcastAllOverride);
     settings.setValue(QStringLiteral("llm/provider"), settingsData.llmProvider.trimmed().toLower());
     settings.setValue(QStringLiteral("llm/baseUrl"), settingsData.llmBaseUrl.trimmed());
     settings.setValue(QStringLiteral("llm/model"), settingsData.llmModel.trimmed());

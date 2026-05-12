@@ -28,9 +28,11 @@ public:
     void paste();
     void selectAll();
     void focusTerminal();
+    void sendKeyPress(int key, Qt::KeyboardModifiers modifiers, const QString& text = QString());
 
 signals:
     void becameActive();
+    void keyPressed(int key, int modifiers, const QString& text);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

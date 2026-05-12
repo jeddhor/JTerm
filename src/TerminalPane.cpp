@@ -3,6 +3,7 @@
 #include "TerminalView.h"
 
 #include <QAction>
+#include <QCheckBox>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,25 +19,31 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     , m_titleLabel(new QLabel(this))
     , m_startupIndicatorLabel(new QLabel(this))
     , m_titleBar(new QWidget(this))
+    , m_broadcastTargetCheck(new QCheckBox(this))
     , m_moveToTabButton(new QToolButton(this))
-    , m_terminalView(new TerminalView(this)) {
+    , m_terminalView(new TerminalView(this))
+    , m_isBroadcastSource(false) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* rootLayout = new QVBoxLayout(this);
-    rootLayout->setContentsMargins(6, 6, 6, 6);
-    rootLayout->setSpacing(4);
+    rootLayout->setContentsMargins(4, 4, 4, 4);
+    rootLayout->setSpacing(2);
 
     auto* titleLayout = new QHBoxLayout(m_titleBar);
-    titleLayout->setContentsMargins(8, 6, 8, 6);
-    titleLayout->setSpacing(8);
+    titleLayout->setContentsMargins(6, 2, 6, 2);
+    titleLayout->setSpacing(6);
 
     m_titleLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     QFont titleFont = m_titleLabel->font();
     titleFont.setBold(true);
+    titleFont.setPointSize(qMax(7, titleFont.pointSize() - 1));
     m_titleLabel->setFont(titleFont);
 
     m_startupIndicatorLabel->setText(QStringLiteral("⚡"));
     m_startupIndicatorLabel->setToolTip(QStringLiteral("This pane has startup commands configured"));
     m_startupIndicatorLabel->setVisible(false);
+
+    m_broadcastTargetCheck->setText(QStringLiteral("◎"));
+    m_broadcastTargetCheck->setToolTip(QStringLiteral("Broadcast target"));
 
     m_moveToTabButton->setText(QStringLiteral("↗"));
     m_moveToTabButton->setAutoRaise(true);
@@ -44,6 +51,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
 
     titleLayout->addWidget(m_titleLabel, 1);
     titleLayout->addWidget(m_startupIndicatorLabel, 0);
+    titleLayout->addWidget(m_broadcastTargetCheck, 0);
     titleLayout->addWidget(m_moveToTabButton, 0);
 
     m_terminalView->setShell(shellPath);
@@ -68,6 +76,9 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
         menu.addSeparator();
         QAction* splitHorizontalAction = menu.addAction(QStringLiteral("Split Horizontally"));
         QAction* splitVerticalAction = menu.addAction(QStringLiteral("Split Vertically"));
+        QAction* broadcastSourceAction = menu.addAction(QStringLiteral("Broadcast Source"));
+        broadcastSourceAction->setCheckable(true);
+        broadcastSourceAction->setChecked(m_isBroadcastSource);
         QAction* moveToTabAction = menu.addAction(QStringLiteral("Move To New Tab"));
         QAction* renameAction = menu.addAction(QStringLiteral("Rename Pane..."));
         QAction* startupScriptAction = menu.addAction(QStringLiteral("Edit Startup Script..."));
@@ -90,6 +101,8 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit splitRequested(this, Qt::Vertical);
         } else if (chosen == splitVerticalAction) {
             emit splitRequested(this, Qt::Horizontal);
+        } else if (chosen == broadcastSourceAction) {
+            emit broadcastSourceToggleRequested(this);
         } else if (chosen == moveToTabAction) {
             emit moveToNewTabRequested(this);
         } else if (chosen == renameAction) {
@@ -113,6 +126,9 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     connect(m_moveToTabButton, &QToolButton::clicked, this, [this]() {
         emit activated(this);
         emit moveToNewTabRequested(this);
+    });
+    connect(m_broadcastTargetCheck, &QCheckBox::toggled, this, [this](bool checked) {
+        emit broadcastTargetToggled(this, checked);
     });
 
     updateHeader();
@@ -153,6 +169,22 @@ bool TerminalPane::hasRunningProcess() const {
 
 void TerminalPane::setMoveToTabVisible(bool visible) {
     m_moveToTabButton->setVisible(visible);
+}
+
+bool TerminalPane::isBroadcastTargetChecked() const {
+    return m_broadcastTargetCheck->isChecked();
+}
+
+void TerminalPane::setBroadcastTargetChecked(bool checked) {
+    m_broadcastTargetCheck->setChecked(checked);
+}
+
+void TerminalPane::setBroadcastTargetEnabled(bool enabled) {
+    m_broadcastTargetCheck->setEnabled(enabled);
+}
+
+void TerminalPane::setBroadcastSourceSelected(bool selected) {
+    m_isBroadcastSource = selected;
 }
 
 TerminalView* TerminalPane::terminalView() const {

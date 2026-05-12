@@ -103,6 +103,10 @@ private:
     void refreshLlmActionState();
     void focusActivePaneTerminal();
     void refreshMoveToTabButtonVisibility();
+    void toggleBroadcastSource(TerminalPane* pane);
+    void applyBroadcastAllOverrideState();
+    void clearBroadcastState();
+    void relayBroadcastKeyPress(TerminalPane* sourcePane, int key, int modifiers, const QString& text);
 
     QTabWidget* m_tabWidget;
     QHash<QWidget*, TabInfo> m_tabInfos;
@@ -117,4 +121,7 @@ private:
     QAction* m_askLlmAction;
     LlmChatDialog* m_llmChatDialog;
     QToolButton* m_newTabButton;
+    TerminalPane* m_broadcastSourcePane;
+    bool m_broadcastRelaying;
+    bool m_lastBroadcastAllOverrideState;
 };

@@ -40,6 +40,7 @@ private:
     QCheckBox* m_confirmExitCheck;
     QCheckBox* m_warnStartupScriptsCheck;
     QCheckBox* m_autoSaveRestoreLayoutCheck;
+    QCheckBox* m_broadcastAllOverrideCheck;
 
     QComboBox* m_llmProviderCombo;
     QLineEdit* m_llmBaseUrlEdit;

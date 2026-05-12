@@ -24,6 +24,12 @@ TerminalView::TerminalView(QWidget* parent)
     m_terminal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setTerminalColorScheme(m_colorSchemeName);
     m_terminal->installEventFilter(this);
+    connect(m_terminal, &QTermWidget::termKeyPressed, this, [this](QKeyEvent* event) {
+        if (!event) {
+            return;
+        }
+        emit keyPressed(event->key(), static_cast<int>(event->modifiers()), event->text());
+    });
 }
 
 QStringList TerminalView::availableColorSchemes() {
@@ -129,6 +135,11 @@ void TerminalView::selectAll() {
 
 void TerminalView::focusTerminal() {
     m_terminal->setFocus(Qt::OtherFocusReason);
+}
+
+void TerminalView::sendKeyPress(int key, Qt::KeyboardModifiers modifiers, const QString& text) {
+    QKeyEvent event(QEvent::KeyPress, key, modifiers, text);
+    m_terminal->sendKeyEvent(&event);
 }
 
 bool TerminalView::eventFilter(QObject* watched, QEvent* event) {

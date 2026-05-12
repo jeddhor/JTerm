@@ -49,7 +49,10 @@ MainWindow::MainWindow(QWidget* parent)
     , m_commandServer(new CommandServer(this))
     , m_askLlmAction(nullptr)
     , m_llmChatDialog(nullptr)
-    , m_newTabButton(nullptr) {
+    , m_newTabButton(nullptr)
+    , m_broadcastSourcePane(nullptr)
+    , m_broadcastRelaying(false)
+    , m_lastBroadcastAllOverrideState(false) {
     initializeUi();
     createMenus();
     refreshLlmActionState();
@@ -304,6 +307,7 @@ void MainWindow::showSettingsDialog() {
     SettingsStore::save(m_settings);
     applyTheme(QString());
     refreshLlmActionState();
+    applyBroadcastAllOverrideState();
 
     if (m_llmChatDialog) {
         m_llmChatDialog->setSettings(m_settings);
@@ -558,6 +562,73 @@ void MainWindow::refreshMoveToTabButtonVisibility() {
     }
 }
 
+void MainWindow::toggleBroadcastSource(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+
+    TerminalPane* next = pane;
+    if (m_broadcastSourcePane == pane) {
+        next = nullptr;
+    }
+
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+    for (TerminalPane* p : panes) {
+        p->setBroadcastSourceSelected(p == next);
+    }
+    m_broadcastSourcePane = next;
+}
+
+void MainWindow::applyBroadcastAllOverrideState() {
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+
+    if (m_settings.broadcastAllOverride) {
+        for (TerminalPane* pane : panes) {
+            pane->setBroadcastTargetChecked(true);
+            pane->setBroadcastTargetEnabled(false);
+        }
+        m_lastBroadcastAllOverrideState = true;
+        return;
+    }
+
+    const bool wasOverrideEnabled = m_lastBroadcastAllOverrideState;
+    for (TerminalPane* pane : panes) {
+        pane->setBroadcastTargetEnabled(true);
+        if (wasOverrideEnabled) {
+            pane->setBroadcastTargetChecked(false);
+        }
+    }
+    m_lastBroadcastAllOverrideState = false;
+}
+
+void MainWindow::clearBroadcastState() {
+    m_broadcastSourcePane = nullptr;
+}
+
+void MainWindow::relayBroadcastKeyPress(TerminalPane* sourcePane, int key, int modifiers, const QString& text) {
+    if (!sourcePane || m_broadcastRelaying || sourcePane != m_broadcastSourcePane) {
+        return;
+    }
+
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+
+    const Qt::KeyboardModifiers keyMods = static_cast<Qt::KeyboardModifiers>(modifiers);
+    m_broadcastRelaying = true;
+    for (TerminalPane* pane : panes) {
+        if (pane == sourcePane) {
+            continue;
+        }
+        if (!m_settings.broadcastAllOverride && !pane->isBroadcastTargetChecked()) {
+            continue;
+        }
+        pane->terminalView()->sendKeyPress(key, keyMods, text);
+    }
+    m_broadcastRelaying = false;
+}
+
 QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle, QWidget* initialRootNode) {
     QWidget* page = new QWidget(this);
     auto* pageLayout = new QVBoxLayout(page);
@@ -581,6 +652,7 @@ QWidget* MainWindow::createTabPage(const QString& tabId, const QString& tabTitle
     const int index = m_tabWidget->addTab(page, info.title);
     refreshTabVisual(index);
     refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
     return page;
 }
 
@@ -796,6 +868,10 @@ void MainWindow::splitPane(TerminalPane* pane, Qt::Orientation orientation) {
 }
 
 void MainWindow::closePane(TerminalPane* pane) {
+        if (pane == m_broadcastSourcePane) {
+            toggleBroadcastSource(pane);
+        }
+
     if (!pane) {
         return;
     }
@@ -873,6 +949,7 @@ void MainWindow::closePane(TerminalPane* pane) {
         setActivePane(refreshed.first());
     }
     refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
 }
 
 void MainWindow::renamePane(TerminalPane* pane) {
@@ -889,6 +966,7 @@ void MainWindow::renamePane(TerminalPane* pane) {
     pane->setTitle(newTitle);
     setActivePane(pane);
     refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
 }
 
 void MainWindow::movePaneToNewTab(TerminalPane* pane) {
@@ -1018,6 +1096,9 @@ void MainWindow::closeTabByIndex(int index) {
     if (m_activePane && (page == m_activePane || page->isAncestorOf(m_activePane))) {
         m_activePane = nullptr;
     }
+    if (m_broadcastSourcePane && (page == m_broadcastSourcePane || page->isAncestorOf(m_broadcastSourcePane))) {
+        clearBroadcastState();
+    }
 
     m_tabInfos.remove(page);
     m_tabWidget->removeTab(index);
@@ -1028,6 +1109,7 @@ void MainWindow::closeTabByIndex(int index) {
     }
     syncActivePaneToCurrentTab();
     refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
 }
 
 void MainWindow::renameTabByIndex(int index) {
@@ -1095,6 +1177,7 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
     m_nextPaneCounter = 1;
     m_nextTabCounter = 1;
     m_activePane = nullptr;
+    clearBroadcastState();
 
     const int version = rootObject.value(QStringLiteral("version")).toInt(1);
     if (version <= 1) {
@@ -1112,6 +1195,7 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
         syncActivePaneToCurrentTab();
         applyTheme(QString());
         refreshMoveToTabButtonVisibility();
+        applyBroadcastAllOverrideState();
         return true;
     }
 
@@ -1174,6 +1258,7 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
             focusPane->terminalView()->focusTerminal();
             applyTheme(QString());
             refreshMoveToTabButtonVisibility();
+            applyBroadcastAllOverrideState();
             return true;
         }
     }
@@ -1181,6 +1266,7 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
     syncActivePaneToCurrentTab();
     applyTheme(QString());
     refreshMoveToTabButtonVisibility();
+    applyBroadcastAllOverrideState();
     focusActivePaneTerminal();
     return true;
 }
@@ -1508,6 +1594,12 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::closeRequested, this, &MainWindow::closePane);
     connect(pane, &TerminalPane::renameRequested, this, &MainWindow::renamePane);
     connect(pane, &TerminalPane::moveToNewTabRequested, this, &MainWindow::movePaneToNewTab);
+    connect(pane, &TerminalPane::broadcastSourceToggleRequested, this, &MainWindow::toggleBroadcastSource);
+    connect(pane, &TerminalPane::broadcastTargetToggled, this, [this](TerminalPane* sourcePane, bool checked) {
+        if (!sourcePane || !checked || m_settings.broadcastAllOverride) {
+            return;
+        }
+    });
     connect(pane, &TerminalPane::startupScriptRequested, this, &MainWindow::editPaneStartupScript);
     connect(pane, &TerminalPane::preferencesRequested, this, [this](TerminalPane* sourcePane) {
         if (sourcePane) {
@@ -1532,6 +1624,9 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
             setActivePane(sourcePane);
             sourcePane->terminalView()->selectAll();
         }
+    });
+    connect(pane->terminalView(), &TerminalView::keyPressed, this, [this, pane](int key, int modifiers, const QString& text) {
+        relayBroadcastKeyPress(pane, key, modifiers, text);
     });
 }
 

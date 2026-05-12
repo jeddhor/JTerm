@@ -9,6 +9,7 @@ struct AppSettings {
     bool confirmOnMultiPaneExit = true;
     bool warnOnLayoutStartupScripts = true;
     bool autoSaveRestoreLayout = false;
+    bool broadcastAllOverride = false;
 
     QString llmProvider;
     QString llmBaseUrl;

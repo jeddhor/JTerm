@@ -3,6 +3,7 @@
 #include <QWidget>
 
 class QLabel;
+class QCheckBox;
 class TerminalView;
 class QToolButton;
 
@@ -20,6 +21,10 @@ public:
     void runStartupScript();
     bool hasRunningProcess() const;
     void setMoveToTabVisible(bool visible);
+    bool isBroadcastTargetChecked() const;
+    void setBroadcastTargetChecked(bool checked);
+    void setBroadcastTargetEnabled(bool enabled);
+    void setBroadcastSourceSelected(bool selected);
 
     TerminalView* terminalView() const;
 
@@ -34,6 +39,8 @@ signals:
     void pasteRequested(TerminalPane* pane);
     void selectAllRequested(TerminalPane* pane);
     void moveToNewTabRequested(TerminalPane* pane);
+    void broadcastTargetToggled(TerminalPane* pane, bool checked);
+    void broadcastSourceToggleRequested(TerminalPane* pane);
 
 private slots:
     void onInnerActivated();
@@ -51,6 +58,8 @@ private:
     QLabel* m_titleLabel;
     QLabel* m_startupIndicatorLabel;
     QWidget* m_titleBar;
+    QCheckBox* m_broadcastTargetCheck;
     QToolButton* m_moveToTabButton;
     TerminalView* m_terminalView;
+    bool m_isBroadcastSource;
 };
