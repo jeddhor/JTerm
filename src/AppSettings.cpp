@@ -31,7 +31,7 @@ AppSettings load() {
     result.maxPanes = settings.value(QStringLiteral("layout/maxPanes"), 32).toInt();
     result.confirmOnMultiPaneExit = settings.value(QStringLiteral("ui/confirmOnMultiPaneExit"), true).toBool();
     result.warnOnLayoutStartupScripts = settings.value(QStringLiteral("ui/warnOnLayoutStartupScripts"), true).toBool();
-    result.autoSaveRestoreLayout = settings.value(QStringLiteral("layout/autoSaveRestore"), false).toBool();
+    result.autoSaveRestoreLayout = settings.value(QStringLiteral("layout/autoSaveRestore"), true).toBool();
     result.broadcastAllOverride = settings.value(QStringLiteral("broadcast/allOverride"), false).toBool();
     result.startupScriptThrottleIntervalSeconds = settings.value(QStringLiteral("startup/throttleIntervalSeconds"), 1).toInt();
     result.llmProvider = settings.value(QStringLiteral("llm/provider"), QString()).toString().trimmed().toLower();

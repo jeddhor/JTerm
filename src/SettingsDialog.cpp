@@ -38,7 +38,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     , m_network(new QNetworkAccessManager(this)) {
     m_confirmExitCheck = new QCheckBox(QStringLiteral("Confirm before exiting when multiple tabs or panes are open"), this);
     m_warnStartupScriptsCheck = new QCheckBox(QStringLiteral("Warn when loading layouts that contain startup commands"), this);
-    m_autoSaveRestoreLayoutCheck = new QCheckBox(QStringLiteral("Automatically save layout on exit and restore it on startup"), this);
+    m_autoSaveRestoreLayoutCheck = new QCheckBox(QStringLiteral("Restore last session tabs and panes on startup"), this);
     m_broadcastAllOverrideCheck = new QCheckBox(QStringLiteral("Broadcast always targets all panes (override targets)"), this);
     setWindowTitle(QStringLiteral("Settings"));
     resize(700, 520);

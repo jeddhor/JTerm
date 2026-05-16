@@ -8,7 +8,7 @@ struct AppSettings {
     int maxPanes = 32;
     bool confirmOnMultiPaneExit = true;
     bool warnOnLayoutStartupScripts = true;
-    bool autoSaveRestoreLayout = false;
+    bool autoSaveRestoreLayout = true;
     bool broadcastAllOverride = false;
     int startupScriptThrottleIntervalSeconds = 1;
 

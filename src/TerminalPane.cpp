@@ -20,6 +20,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     , m_title(QStringLiteral("Pane ") + paneId)
     , m_titleLabel(new QLabel(this))
     , m_startupIndicatorLabel(new QLabel(this))
+    , m_startupThrottleIndicatorLabel(new QLabel(this))
     , m_titleBar(new QWidget(this))
     , m_broadcastTargetCheck(new QCheckBox(this))
     , m_moveToTabButton(new QToolButton(this))
@@ -48,6 +49,10 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     m_startupIndicatorLabel->setToolTip(QStringLiteral("This pane has startup commands configured"));
     m_startupIndicatorLabel->setVisible(false);
 
+    m_startupThrottleIndicatorLabel->setText(QStringLiteral("⏱"));
+    m_startupThrottleIndicatorLabel->setToolTip(QStringLiteral("Startup script throttling is enabled for this pane"));
+    m_startupThrottleIndicatorLabel->setVisible(false);
+
     m_broadcastTargetCheck->setText(QStringLiteral("◎"));
     m_broadcastTargetCheck->setToolTip(QStringLiteral("Broadcast target"));
 
@@ -57,6 +62,7 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
 
     titleLayout->addWidget(m_titleLabel, 1);
     titleLayout->addWidget(m_startupIndicatorLabel, 0);
+    titleLayout->addWidget(m_startupThrottleIndicatorLabel, 0);
     titleLayout->addWidget(m_broadcastTargetCheck, 0);
     titleLayout->addWidget(m_moveToTabButton, 0);
 
@@ -164,6 +170,7 @@ QString TerminalPane::startupScript() const {
 
 void TerminalPane::setStartupScript(const QString& script) {
     m_startupScript = script;
+    updateHeader();
 }
 
 bool TerminalPane::startupScriptThrottled() const {
@@ -172,6 +179,7 @@ bool TerminalPane::startupScriptThrottled() const {
 
 void TerminalPane::setStartupScriptThrottled(bool enabled) {
     m_startupScriptThrottled = enabled;
+    updateHeader();
 }
 
 void TerminalPane::setStartupThrottleIntervalSeconds(int seconds) {
@@ -266,5 +274,6 @@ void TerminalPane::updateHeader() {
     m_titleLabel->setToolTip(tooltip);
     m_titleBar->setToolTip(tooltip);
     m_startupIndicatorLabel->setVisible(!m_startupScript.trimmed().isEmpty());
+    m_startupThrottleIndicatorLabel->setVisible(m_startupScriptThrottled && !m_startupScript.trimmed().isEmpty());
     m_moveToTabButton->setToolTip(QStringLiteral("Move ") + tooltip + QStringLiteral(" to a new tab"));
 }

@@ -66,6 +66,7 @@ private:
 
     QLabel* m_titleLabel;
     QLabel* m_startupIndicatorLabel;
+    QLabel* m_startupThrottleIndicatorLabel;
     QWidget* m_titleBar;
     QCheckBox* m_broadcastTargetCheck;
     QToolButton* m_moveToTabButton;
