@@ -2267,7 +2267,7 @@ bool MainWindow::confirmSafePaste(const QString& text) const {
 
     const QString preview = text.left(300);
     const QMessageBox::StandardButton choice = QMessageBox::warning(
-        this,
+        const_cast<MainWindow*>(this),
         QStringLiteral("Confirm Paste"),
         QStringLiteral("Pasting this content may execute multiple or privileged commands:\n\n")
             + preview
