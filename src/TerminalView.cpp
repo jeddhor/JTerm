@@ -3,8 +3,8 @@
 #include <QCoreApplication>
 #include <QEvent>
 #include <QKeyEvent>
-#include <QMouseEvent>
 #include <QMetaObject>
+#include <QMouseEvent>
 #include <QVBoxLayout>
 
 #include <qtermwidget6/qtermwidget.h>
@@ -23,6 +23,8 @@ TerminalView::TerminalView(QWidget* parent)
     m_terminal->setTerminalSizeHint(false);
     m_terminal->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setTerminalColorScheme(m_colorSchemeName);
+    // Best-effort backend polish for hyperlink/escape handling where supported.
+    QMetaObject::invokeMethod(m_terminal, "setUrlFilterEnabled", Q_ARG(bool, true));
     m_terminal->installEventFilter(this);
     connect(m_terminal, &QTermWidget::termKeyPressed, this, [this](QKeyEvent* event) {
         if (!event) {
@@ -133,6 +135,39 @@ void TerminalView::selectAll() {
     QCoreApplication::sendEvent(m_terminal, &release);
 }
 
+bool TerminalView::findInScrollback(const QString& query, bool forward) {
+    const QString needle = query.trimmed();
+    if (needle.isEmpty()) {
+        return false;
+    }
+
+    if (QMetaObject::invokeMethod(m_terminal, "find", Q_ARG(QString, needle))) {
+        return true;
+    }
+    if (QMetaObject::invokeMethod(m_terminal, "findText", Q_ARG(QString, needle))) {
+        return true;
+    }
+    if (QMetaObject::invokeMethod(m_terminal, "search", Q_ARG(QString, needle), Q_ARG(bool, forward))) {
+        return true;
+    }
+    if (QMetaObject::invokeMethod(m_terminal, "search", Q_ARG(QString, needle))) {
+        return true;
+    }
+
+    return false;
+}
+
+QString TerminalView::selectedText() const {
+    QString result;
+    if (QMetaObject::invokeMethod(const_cast<QTermWidget*>(m_terminal), "selectedText", Q_RETURN_ARG(QString, result))) {
+        return result;
+    }
+    if (QMetaObject::invokeMethod(const_cast<QTermWidget*>(m_terminal), "selection", Q_RETURN_ARG(QString, result))) {
+        return result;
+    }
+    return QString();
+}
+
 void TerminalView::focusTerminal() {
     m_terminal->setFocus(Qt::OtherFocusReason);
 }
@@ -143,10 +178,28 @@ void TerminalView::sendKeyPress(int key, Qt::KeyboardModifiers modifiers, const 
 }
 
 bool TerminalView::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_terminal && event->type() == QEvent::KeyPress) {
+        auto* keyEvent = static_cast<QKeyEvent*>(event);
+        const bool pasteChord =
+            ((keyEvent->modifiers() & Qt::ControlModifier) && keyEvent->key() == Qt::Key_V)
+            || ((keyEvent->modifiers() & Qt::ShiftModifier) && keyEvent->key() == Qt::Key_Insert);
+        if (pasteChord) {
+            emit pasteShortcutRequested();
+            emit becameActive();
+            return true;
+        }
+    }
+
     if (watched == m_terminal && event->type() == QEvent::MouseButtonPress) {
         auto* mouseEvent = static_cast<QMouseEvent*>(event);
         if (mouseEvent->button() == Qt::MiddleButton) {
             m_terminal->pasteSelection();
+            emit becameActive();
+            return true;
+        }
+
+        if (mouseEvent->button() == Qt::LeftButton && (mouseEvent->modifiers() & Qt::ControlModifier)) {
+            emit openSelectionRequested();
             emit becameActive();
             return true;
         }

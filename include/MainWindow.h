@@ -7,13 +7,17 @@
 #include <QJsonObject>
 #include <QMainWindow>
 #include <QSet>
+#include <QElapsedTimer>
 
 class CommandServer;
 class QAction;
 class LlmChatDialog;
+class QSystemTrayIcon;
+class QTimer;
 class QTabWidget;
 class TerminalPane;
 class QToolButton;
+class QSplitter;
 class QWidget;
 
 class MainWindow : public QMainWindow {
@@ -34,7 +38,12 @@ private slots:
     void createNewTab();
     void closeCurrentTab();
     void renameCurrentTab();
+    void duplicateCurrentTab();
+    void setCurrentTabColor();
+    void clearCurrentTabColor();
     void autoArrangeCurrentTabPanes();
+    void toggleActivePaneZoom();
+    void searchInActivePane();
     void editLayoutJson();
     void saveLayoutToFile();
     void loadLayoutFromFile();
@@ -49,11 +58,13 @@ private slots:
     void handleRemoteCommand(const QString& paneId, const QString& paneTitle, const QString& command);
     void onTabCloseRequested(int index);
     void onCurrentTabChanged(int index);
+    void checkLongRunningProcesses();
 
 private:
     struct TabInfo {
         QString id;
         QString title;
+        QString colorHex;
         QWidget* rootNode = nullptr;
     };
 
@@ -76,12 +87,13 @@ private:
 
     void closeTabByIndex(int index);
     void renameTabByIndex(int index);
+    void duplicateTabByIndex(int index);
 
     QJsonObject exportLayoutObject() const;
     bool importLayoutObject(const QJsonObject& rootObject, QString* errorMessage);
 
     QJsonObject serializeNode(QWidget* node) const;
-    QWidget* deserializeNode(const QJsonObject& nodeObject, bool* ok);
+    QWidget* deserializeNode(const QJsonObject& nodeObject, bool* ok, bool runStartupScripts = true);
     void applySnapScope(QWidget* node, QWidget* snapScope);
     bool nodeContainsStartupScripts(const QJsonObject& nodeObject) const;
     bool layoutContainsStartupScripts(const QJsonObject& layoutObject) const;
@@ -104,15 +116,23 @@ private:
     void setActivePane(TerminalPane* pane);
     void wirePaneSignals(TerminalPane* pane);
     void syncActivePaneToCurrentTab();
+    void collectSplitters(QWidget* node, QList<QSplitter*>& outSplitters) const;
     void refreshTabVisual(int index);
     void refreshLlmActionState();
     void focusActivePaneTerminal();
     void refreshMoveToTabButtonVisibility();
     void showSettingsDialogAtTab(SettingsDialog::InitialTab initialTab);
     void toggleBroadcastSource(TerminalPane* pane);
+    void editBroadcastGroup(TerminalPane* pane);
+    void clearBroadcastGroup(TerminalPane* pane);
     void applyBroadcastAllOverrideState();
     void clearBroadcastState();
     void relayBroadcastKeyPress(TerminalPane* sourcePane, int key, int modifiers, const QString& text);
+    bool isRiskyCommandText(const QString& text) const;
+    bool confirmRiskyBroadcast(const QString& commandText) const;
+    bool confirmSafePaste(const QString& text) const;
+    void requestPasteIntoPane(TerminalPane* pane);
+    void handleOpenSelection(TerminalPane* pane);
 
     QTabWidget* m_tabWidget;
     QHash<QWidget*, TabInfo> m_tabInfos;
@@ -128,7 +148,13 @@ private:
     QAction* m_toggleMenuBarAction;
     LlmChatDialog* m_llmChatDialog;
     QToolButton* m_newTabButton;
+    QSystemTrayIcon* m_trayIcon;
+    QTimer* m_processWatchTimer;
     TerminalPane* m_broadcastSourcePane;
     bool m_broadcastRelaying;
     bool m_lastBroadcastAllOverrideState;
+    QHash<TerminalPane*, QString> m_broadcastInputBuffers;
+    QWidget* m_zoomedTabPage;
+    QHash<QSplitter*, QList<int>> m_zoomedSplitterSizes;
+    QHash<TerminalPane*, qint64> m_runningSinceMs;
 };

@@ -10,7 +10,10 @@ struct AppSettings {
     bool warnOnLayoutStartupScripts = true;
     bool autoSaveRestoreLayout = true;
     bool broadcastAllOverride = false;
+    bool confirmRiskyBroadcastCommands = true;
+    bool safePasteGuard = true;
     int startupScriptThrottleIntervalSeconds = 1;
+    int longRunningNotificationSeconds = 20;
 
     QString llmProvider;
     QString llmBaseUrl;

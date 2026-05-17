@@ -14,6 +14,9 @@
 #include <QApplication>
 #include <QByteArray>
 #include <QCloseEvent>
+#include <QClipboard>
+#include <QColorDialog>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -31,9 +34,11 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPixmap>
+#include <QRegularExpression>
 #include <QStatusBar>
 #include <QStandardPaths>
 #include <QStyle>
+#include <QSystemTrayIcon>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -55,9 +60,12 @@ MainWindow::MainWindow(QWidget* parent)
     , m_toggleMenuBarAction(nullptr)
     , m_llmChatDialog(nullptr)
     , m_newTabButton(nullptr)
+    , m_trayIcon(nullptr)
+    , m_processWatchTimer(new QTimer(this))
     , m_broadcastSourcePane(nullptr)
     , m_broadcastRelaying(false)
-    , m_lastBroadcastAllOverrideState(false) {
+    , m_lastBroadcastAllOverrideState(false)
+    , m_zoomedTabPage(nullptr) {
     initializeUi();
     createMenus();
     refreshLlmActionState();
@@ -74,6 +82,16 @@ MainWindow::MainWindow(QWidget* parent)
     if (!m_commandServer->startListening()) {
         QMessageBox::warning(this, QStringLiteral("IPC unavailable"), QStringLiteral("Another instance may already hold the command socket."));
     }
+
+    if (QSystemTrayIcon::isSystemTrayAvailable()) {
+        m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
+        m_trayIcon->setToolTip(QStringLiteral("JTerm"));
+        m_trayIcon->show();
+    }
+
+    m_processWatchTimer->setInterval(1000);
+    connect(m_processWatchTimer, &QTimer::timeout, this, &MainWindow::checkLongRunningProcesses);
+    m_processWatchTimer->start();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -227,6 +245,133 @@ void MainWindow::closeCurrentTab() {
 
 void MainWindow::renameCurrentTab() {
     renameTabByIndex(m_tabWidget->currentIndex());
+}
+
+void MainWindow::duplicateCurrentTab() {
+    duplicateTabByIndex(m_tabWidget->currentIndex());
+}
+
+void MainWindow::setCurrentTabColor() {
+    const int index = m_tabWidget->currentIndex();
+    if (index < 0) {
+        return;
+    }
+
+    QWidget* page = m_tabWidget->widget(index);
+    TabInfo* info = tabInfoForPage(page);
+    if (!info) {
+        return;
+    }
+
+    QColor initialColor;
+    if (!info->colorHex.trimmed().isEmpty()) {
+        initialColor = QColor(info->colorHex);
+    }
+    const QColor chosen = QColorDialog::getColor(initialColor, this, QStringLiteral("Set Tab Color"));
+    if (!chosen.isValid()) {
+        return;
+    }
+
+    info->colorHex = chosen.name(QColor::HexRgb);
+    refreshTabVisual(index);
+}
+
+void MainWindow::clearCurrentTabColor() {
+    const int index = m_tabWidget->currentIndex();
+    if (index < 0) {
+        return;
+    }
+
+    QWidget* page = m_tabWidget->widget(index);
+    TabInfo* info = tabInfoForPage(page);
+    if (!info) {
+        return;
+    }
+
+    info->colorHex.clear();
+    refreshTabVisual(index);
+}
+
+void MainWindow::toggleActivePaneZoom() {
+    QWidget* page = currentTabPage();
+    TabInfo* info = tabInfoForPage(page);
+    if (!page || !info || !info->rootNode || !m_activePane) {
+        return;
+    }
+
+    if (m_zoomedTabPage == page && !m_zoomedSplitterSizes.isEmpty()) {
+        for (auto it = m_zoomedSplitterSizes.constBegin(); it != m_zoomedSplitterSizes.constEnd(); ++it) {
+            if (it.key()) {
+                it.key()->setSizes(it.value());
+            }
+        }
+        m_zoomedSplitterSizes.clear();
+        m_zoomedTabPage = nullptr;
+        statusBar()->showMessage(QStringLiteral("Pane zoom restored."), 1800);
+        return;
+    }
+
+    m_zoomedSplitterSizes.clear();
+    m_zoomedTabPage = page;
+
+    QList<QSplitter*> splitters;
+    collectSplitters(info->rootNode, splitters);
+    for (QSplitter* splitter : splitters) {
+        if (splitter) {
+            m_zoomedSplitterSizes.insert(splitter, splitter->sizes());
+        }
+    }
+
+    QWidget* child = m_activePane;
+    QWidget* cursor = child ? child->parentWidget() : nullptr;
+    while (cursor && cursor != page) {
+        auto* splitter = qobject_cast<QSplitter*>(cursor);
+        if (!splitter) {
+            child = cursor;
+            cursor = cursor->parentWidget();
+            continue;
+        }
+
+        const int targetIndex = splitter->indexOf(child);
+        if (targetIndex >= 0) {
+            QList<int> sizes;
+            sizes.reserve(splitter->count());
+            for (int i = 0; i < splitter->count(); ++i) {
+                sizes.append(i == targetIndex ? 2000 : 1);
+                splitter->setStretchFactor(i, i == targetIndex ? 1 : 0);
+            }
+            splitter->setSizes(sizes);
+        }
+
+        child = splitter;
+        cursor = splitter->parentWidget();
+    }
+
+    statusBar()->showMessage(QStringLiteral("Active pane zoomed. Run zoom again to restore."), 2000);
+}
+
+void MainWindow::searchInActivePane() {
+    if (!m_activePane || !m_activePane->terminalView()) {
+        return;
+    }
+
+    bool ok = false;
+    const QString query = QInputDialog::getText(
+        this,
+        QStringLiteral("Search Scrollback"),
+        QStringLiteral("Find text:"),
+        QLineEdit::Normal,
+        QString(),
+        &ok);
+    if (!ok || query.trimmed().isEmpty()) {
+        return;
+    }
+
+    if (!m_activePane->terminalView()->findInScrollback(query, true)) {
+        statusBar()->showMessage(QStringLiteral("Search unavailable in current terminal backend."), 2800);
+        return;
+    }
+    statusBar()->showMessage(QStringLiteral("Searching scrollback for: ") + query.trimmed(), 1800);
 }
 
 void MainWindow::autoArrangeCurrentTabPanes() {
@@ -638,6 +783,16 @@ void MainWindow::onTabCloseRequested(int index) {
 }
 
 void MainWindow::onCurrentTabChanged(int) {
+    QWidget* page = currentTabPage();
+    if (m_zoomedTabPage && m_zoomedTabPage != page && !m_zoomedSplitterSizes.isEmpty()) {
+        for (auto it = m_zoomedSplitterSizes.constBegin(); it != m_zoomedSplitterSizes.constEnd(); ++it) {
+            if (it.key()) {
+                it.key()->setSizes(it.value());
+            }
+        }
+        m_zoomedSplitterSizes.clear();
+        m_zoomedTabPage = nullptr;
+    }
     syncActivePaneToCurrentTab();
 }
 
@@ -674,9 +829,22 @@ void MainWindow::initializeUi() {
         QMenu menu(this);
         QAction* newTabAction = menu.addAction(QStringLiteral("New Tab"));
         QAction* renameTabAction = nullptr;
+        QAction* duplicateTabAction = nullptr;
+        QAction* setTabColorAction = nullptr;
+        QAction* clearTabColorAction = nullptr;
         QAction* closeTabAction = nullptr;
         if (index >= 0) {
             renameTabAction = menu.addAction(QStringLiteral("Rename Tab..."));
+            duplicateTabAction = menu.addAction(QStringLiteral("Duplicate Tab"));
+            menu.addSeparator();
+            setTabColorAction = menu.addAction(QStringLiteral("Set Tab Color..."));
+            clearTabColorAction = menu.addAction(QStringLiteral("Clear Tab Color"));
+            QWidget* page = m_tabWidget->widget(index);
+            const TabInfo* info = tabInfoForPage(page);
+            if (clearTabColorAction && info && info->colorHex.trimmed().isEmpty()) {
+                clearTabColorAction->setEnabled(false);
+            }
+            menu.addSeparator();
             closeTabAction = menu.addAction(QStringLiteral("Close Tab"));
         }
 
@@ -688,6 +856,14 @@ void MainWindow::initializeUi() {
             createNewTab();
         } else if (chosen == renameTabAction) {
             renameTabByIndex(index);
+        } else if (chosen == duplicateTabAction) {
+            duplicateTabByIndex(index);
+        } else if (chosen == setTabColorAction) {
+            m_tabWidget->setCurrentIndex(index);
+            setCurrentTabColor();
+        } else if (chosen == clearTabColorAction) {
+            m_tabWidget->setCurrentIndex(index);
+            clearCurrentTabColor();
         } else if (chosen == closeTabAction) {
             closeTabByIndex(index);
         }
@@ -714,7 +890,7 @@ void MainWindow::createMenus() {
     });
     editMenu->addAction(QStringLiteral("📋 Paste"), QKeySequence::Paste, this, [this]() {
         if (m_activePane) {
-            m_activePane->terminalView()->paste();
+            requestPasteIntoPane(m_activePane);
         }
     });
     editMenu->addAction(QStringLiteral("Select All"), QKeySequence::SelectAll, this, [this]() {
@@ -722,6 +898,7 @@ void MainWindow::createMenus() {
             m_activePane->terminalView()->selectAll();
         }
     });
+    editMenu->addAction(QStringLiteral("Search Scrollback..."), QKeySequence(QStringLiteral("Ctrl+Shift+F")), this, &MainWindow::searchInActivePane);
     editMenu->addSeparator();
     editMenu->addAction(QStringLiteral("Preferences..."), QKeySequence(QStringLiteral("Ctrl+,")), this, &MainWindow::showSettingsDialog);
 
@@ -731,11 +908,15 @@ void MainWindow::createMenus() {
 
     windowPaneMenu->addAction(QStringLiteral("Split Horizontally"), QKeySequence(QStringLiteral("Ctrl+Shift+H")), this, &MainWindow::splitActivePaneHorizontal);
     windowPaneMenu->addAction(QStringLiteral("Split Vertically"), QKeySequence(QStringLiteral("Ctrl+Shift+V")), this, &MainWindow::splitActivePaneVertical);
+    windowPaneMenu->addAction(QStringLiteral("Toggle Zoom Active Pane"), QKeySequence(QStringLiteral("Ctrl+Shift+Z")), this, &MainWindow::toggleActivePaneZoom);
     windowPaneMenu->addAction(QStringLiteral("Rename Pane..."), QKeySequence(QStringLiteral("Ctrl+Shift+R")), this, &MainWindow::renameActivePane);
     windowPaneMenu->addAction(QStringLiteral("Close Terminal"), QKeySequence(QStringLiteral("Ctrl+Shift+W")), this, &MainWindow::closeActivePane);
 
     windowTabMenu->addAction(QStringLiteral("New Tab"), QKeySequence(QStringLiteral("Ctrl+T")), this, &MainWindow::createNewTab);
     windowTabMenu->addAction(QStringLiteral("Rename Tab..."), QKeySequence(QStringLiteral("Ctrl+Alt+R")), this, &MainWindow::renameCurrentTab);
+    windowTabMenu->addAction(QStringLiteral("Duplicate Tab"), QKeySequence(QStringLiteral("Ctrl+Shift+D")), this, &MainWindow::duplicateCurrentTab);
+    windowTabMenu->addAction(QStringLiteral("Set Tab Color..."), this, &MainWindow::setCurrentTabColor);
+    windowTabMenu->addAction(QStringLiteral("Clear Tab Color"), this, &MainWindow::clearCurrentTabColor);
     windowTabMenu->addAction(QStringLiteral("Close Tab"), QKeySequence(QStringLiteral("Ctrl+W")), this, &MainWindow::closeCurrentTab);
     windowTabMenu->addAction(QStringLiteral("Auto-Arrange Panes"), QKeySequence(QStringLiteral("Ctrl+Shift+A")), this, &MainWindow::autoArrangeCurrentTabPanes);
     windowMenu->addSeparator();
@@ -826,6 +1007,34 @@ void MainWindow::toggleBroadcastSource(TerminalPane* pane) {
     m_broadcastSourcePane = next;
 }
 
+void MainWindow::editBroadcastGroup(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+
+    bool ok = false;
+    const QString current = pane->broadcastGroup();
+    const QString groupName = QInputDialog::getText(
+        this,
+        QStringLiteral("Broadcast Group"),
+        QStringLiteral("Group name:"),
+        QLineEdit::Normal,
+        current,
+        &ok);
+    if (!ok) {
+        return;
+    }
+
+    pane->setBroadcastGroup(groupName);
+}
+
+void MainWindow::clearBroadcastGroup(TerminalPane* pane) {
+    if (!pane) {
+        return;
+    }
+    pane->setBroadcastGroup(QString());
+}
+
 void MainWindow::applyBroadcastAllOverrideState() {
     QList<TerminalPane*> panes;
     collectAllPanes(panes);
@@ -866,14 +1075,38 @@ void MainWindow::relayBroadcastKeyPress(TerminalPane* sourcePane, int key, int m
     QList<TerminalPane*> panes;
     collectAllPanes(panes);
 
+    QString& pendingBuffer = m_broadcastInputBuffers[sourcePane];
+    if (!text.isEmpty() && text.at(0).isPrint()) {
+        pendingBuffer += text;
+    }
+    if (key == Qt::Key_Backspace && !pendingBuffer.isEmpty()) {
+        pendingBuffer.chop(1);
+    }
+
+    const bool isEnter = key == Qt::Key_Return || key == Qt::Key_Enter;
+    if (isEnter && m_settings.confirmRiskyBroadcastCommands) {
+        const QString candidate = pendingBuffer.trimmed();
+        if (isRiskyCommandText(candidate) && !confirmRiskyBroadcast(candidate)) {
+            return;
+        }
+        pendingBuffer.clear();
+    }
+
+    const QString sourceGroup = sourcePane->broadcastGroup().trimmed();
     const Qt::KeyboardModifiers keyMods = static_cast<Qt::KeyboardModifiers>(modifiers);
     m_broadcastRelaying = true;
     for (TerminalPane* pane : panes) {
         if (pane == sourcePane) {
             continue;
         }
-        if (!m_settings.broadcastAllOverride && !pane->isBroadcastTargetChecked()) {
-            continue;
+        if (!m_settings.broadcastAllOverride) {
+            if (!sourceGroup.isEmpty()) {
+                if (pane->broadcastGroup().trimmed() != sourceGroup) {
+                    continue;
+                }
+            } else if (!pane->isBroadcastTargetChecked()) {
+                continue;
+            }
         }
         pane->terminalView()->sendKeyPress(key, keyMods, text);
     }
@@ -1332,6 +1565,11 @@ void MainWindow::closeTabByIndex(int index) {
         return;
     }
 
+    if (m_zoomedTabPage == page) {
+        m_zoomedSplitterSizes.clear();
+        m_zoomedTabPage = nullptr;
+    }
+
     if (TabInfo* info = tabInfoForPage(page)) {
         QList<TerminalPane*> tabPanes;
         collectPanes(info->rootNode, tabPanes);
@@ -1386,6 +1624,37 @@ void MainWindow::renameTabByIndex(int index) {
     refreshTabVisual(index);
 }
 
+void MainWindow::duplicateTabByIndex(int index) {
+    if (index < 0 || index >= m_tabWidget->count()) {
+        return;
+    }
+
+    QWidget* page = m_tabWidget->widget(index);
+    const TabInfo* info = tabInfoForPage(page);
+    if (!info || !info->rootNode) {
+        return;
+    }
+
+    bool ok = true;
+    QWidget* duplicatedRoot = deserializeNode(serializeNode(info->rootNode), &ok, false);
+    if (!ok || !duplicatedRoot) {
+        if (duplicatedRoot) {
+            duplicatedRoot->deleteLater();
+        }
+        QMessageBox::warning(this, QStringLiteral("Duplicate Tab"), QStringLiteral("Could not duplicate this tab."));
+        return;
+    }
+
+    const QString newTabId = nextTabId();
+    const QString newTitle = info->title + QStringLiteral(" (Copy)");
+    QWidget* newPage = createTabPage(newTabId, newTitle, duplicatedRoot);
+    if (TabInfo* newInfo = tabInfoForPage(newPage)) {
+        newInfo->colorHex = info->colorHex;
+    }
+    m_tabWidget->setCurrentWidget(newPage);
+    refreshTabVisual(m_tabWidget->currentIndex());
+}
+
 QJsonObject MainWindow::exportLayoutObject() const {
     QJsonObject rootObject;
     rootObject.insert(QStringLiteral("version"), 2);
@@ -1401,6 +1670,9 @@ QJsonObject MainWindow::exportLayoutObject() const {
         QJsonObject tabObject;
         tabObject.insert(QStringLiteral("id"), info->id);
         tabObject.insert(QStringLiteral("title"), info->title);
+        if (!info->colorHex.trimmed().isEmpty()) {
+            tabObject.insert(QStringLiteral("color"), info->colorHex.trimmed());
+        }
         tabObject.insert(QStringLiteral("root"), serializeNode(info->rootNode));
         tabsArray.append(tabObject);
     }
@@ -1473,8 +1745,13 @@ bool MainWindow::importLayoutObject(const QJsonObject& rootObject, QString* erro
         if (tabTitle.trimmed().isEmpty()) {
             tabTitle = QStringLiteral("Tab ") + tabId;
         }
+        const QString tabColor = tabObject.value(QStringLiteral("color")).toString().trimmed();
 
-        createTabPage(tabId, tabTitle, rootNode);
+        QWidget* page = createTabPage(tabId, tabTitle, rootNode);
+        if (TabInfo* info = tabInfoForPage(page)) {
+            info->colorHex = tabColor;
+        }
+        refreshTabVisual(m_tabWidget->indexOf(page));
     }
 
     if (m_tabWidget->count() == 0) {
@@ -1531,6 +1808,9 @@ QJsonObject MainWindow::serializeNode(QWidget* node) const {
         nodeObject.insert(QStringLiteral("type"), QStringLiteral("pane"));
         nodeObject.insert(QStringLiteral("id"), pane->paneId());
         nodeObject.insert(QStringLiteral("title"), pane->title());
+        if (!pane->broadcastGroup().trimmed().isEmpty()) {
+            nodeObject.insert(QStringLiteral("broadcastGroup"), pane->broadcastGroup().trimmed());
+        }
         nodeObject.insert(QStringLiteral("startupScriptThrottled"), pane->startupScriptThrottled());
         const QString startupScript = pane->startupScript();
         if (!startupScript.isEmpty()) {
@@ -1564,20 +1844,26 @@ QJsonObject MainWindow::serializeNode(QWidget* node) const {
     return nodeObject;
 }
 
-QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
+QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok, bool runStartupScripts) {
     const QString type = nodeObject.value(QStringLiteral("type")).toString();
     if (type == QStringLiteral("pane")) {
         const QString paneId = normalizePaneId(nodeObject.value(QStringLiteral("id")).toString());
         const QString paneTitle = nodeObject.value(QStringLiteral("title")).toString();
         TerminalPane* pane = createPane(paneTitle, paneId);
+        pane->setBroadcastGroup(nodeObject.value(QStringLiteral("broadcastGroup")).toString());
 
         const QString startupEncoded = nodeObject.value(QStringLiteral("startupScriptBase64")).toString();
         pane->setStartupScriptThrottled(nodeObject.value(QStringLiteral("startupScriptThrottled")).toBool(false));
-        if (!startupEncoded.isEmpty()) {
+        if (runStartupScripts && !startupEncoded.isEmpty()) {
             const QByteArray decoded = QByteArray::fromBase64(startupEncoded.toLatin1());
             if (!decoded.isEmpty()) {
                 pane->setStartupScript(QString::fromUtf8(decoded));
                 pane->runStartupScript();
+            }
+        } else if (!startupEncoded.isEmpty()) {
+            const QByteArray decoded = QByteArray::fromBase64(startupEncoded.toLatin1());
+            if (!decoded.isEmpty()) {
+                pane->setStartupScript(QString::fromUtf8(decoded));
             }
         }
 
@@ -1602,7 +1888,7 @@ QWidget* MainWindow::deserializeNode(const QJsonObject& nodeObject, bool* ok) {
                 *ok = false;
                 continue;
             }
-            QWidget* childNode = deserializeNode(childValue.toObject(), ok);
+            QWidget* childNode = deserializeNode(childValue.toObject(), ok, runStartupScripts);
             if (childNode) {
                 childNode->setParent(splitter);
                 splitter->addWidget(childNode);
@@ -1856,6 +2142,9 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     });
     connect(pane, &TerminalPane::moveToNewTabRequested, this, &MainWindow::movePaneToNewTab);
     connect(pane, &TerminalPane::broadcastSourceToggleRequested, this, &MainWindow::toggleBroadcastSource);
+    connect(pane, &TerminalPane::broadcastGroupEditRequested, this, &MainWindow::editBroadcastGroup);
+    connect(pane, &TerminalPane::broadcastGroupClearRequested, this, &MainWindow::clearBroadcastGroup);
+    connect(pane, &TerminalPane::openSelectionRequested, this, &MainWindow::handleOpenSelection);
     connect(pane, &TerminalPane::broadcastTargetToggled, this, [this](TerminalPane* sourcePane, bool checked) {
         if (!sourcePane || !checked || m_settings.broadcastAllOverride) {
             return;
@@ -1877,7 +2166,7 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     connect(pane, &TerminalPane::pasteRequested, this, [this](TerminalPane* sourcePane) {
         if (sourcePane) {
             setActivePane(sourcePane);
-            sourcePane->terminalView()->paste();
+            requestPasteIntoPane(sourcePane);
         }
     });
     connect(pane, &TerminalPane::selectAllRequested, this, [this](TerminalPane* sourcePane) {
@@ -1888,6 +2177,9 @@ void MainWindow::wirePaneSignals(TerminalPane* pane) {
     });
     connect(pane->terminalView(), &TerminalView::keyPressed, this, [this, pane](int key, int modifiers, const QString& text) {
         relayBroadcastKeyPress(pane, key, modifiers, text);
+    });
+    connect(pane->terminalView(), &TerminalView::pasteShortcutRequested, this, [this, pane]() {
+        requestPasteIntoPane(pane);
     });
 }
 
@@ -1912,6 +2204,166 @@ void MainWindow::syncActivePaneToCurrentTab() {
     }
 }
 
+void MainWindow::collectSplitters(QWidget* node, QList<QSplitter*>& outSplitters) const {
+    if (!node) {
+        return;
+    }
+
+    if (auto* splitter = qobject_cast<QSplitter*>(node)) {
+        outSplitters.append(splitter);
+        for (int i = 0; i < splitter->count(); ++i) {
+            collectSplitters(splitter->widget(i), outSplitters);
+        }
+    }
+}
+
+bool MainWindow::isRiskyCommandText(const QString& text) const {
+    const QString normalized = text.trimmed().toLower();
+    if (normalized.isEmpty()) {
+        return false;
+    }
+
+    static const QStringList riskyPrefixes = {
+        QStringLiteral("sudo "),
+        QStringLiteral("su "),
+        QStringLiteral("rm -rf"),
+        QStringLiteral("del /f"),
+        QStringLiteral("format "),
+        QStringLiteral("shutdown "),
+        QStringLiteral("reboot")
+    };
+    for (const QString& prefix : riskyPrefixes) {
+        if (normalized.startsWith(prefix)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MainWindow::confirmRiskyBroadcast(const QString& commandText) const {
+    const QString preview = commandText.left(220);
+    const QMessageBox::StandardButton choice = QMessageBox::warning(
+        const_cast<MainWindow*>(this),
+        QStringLiteral("Confirm Broadcast"),
+        QStringLiteral("This command looks risky and will be broadcast to targets:\n\n")
+            + preview
+            + QStringLiteral("\n\nBroadcast this command?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    return choice == QMessageBox::Yes;
+}
+
+bool MainWindow::confirmSafePaste(const QString& text) const {
+    if (!m_settings.safePasteGuard) {
+        return true;
+    }
+
+    const QString normalized = text.trimmed();
+    const bool multiline = text.contains(QLatin1Char('\n')) || text.contains(QLatin1Char('\r'));
+    const bool sudoPrefixed = normalized.toLower().startsWith(QStringLiteral("sudo "));
+    if (!multiline && !sudoPrefixed) {
+        return true;
+    }
+
+    const QString preview = text.left(300);
+    const QMessageBox::StandardButton choice = QMessageBox::warning(
+        this,
+        QStringLiteral("Confirm Paste"),
+        QStringLiteral("Pasting this content may execute multiple or privileged commands:\n\n")
+            + preview
+            + QStringLiteral("\n\nPaste into terminal?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    return choice == QMessageBox::Yes;
+}
+
+void MainWindow::requestPasteIntoPane(TerminalPane* pane) {
+    if (!pane || !pane->terminalView()) {
+        return;
+    }
+
+    const QString text = QApplication::clipboard()->text(QClipboard::Clipboard);
+    if (!confirmSafePaste(text)) {
+        statusBar()->showMessage(QStringLiteral("Paste canceled by safety guard."), 2000);
+        return;
+    }
+
+    pane->terminalView()->paste();
+}
+
+void MainWindow::handleOpenSelection(TerminalPane* pane) {
+    if (!pane || !pane->terminalView()) {
+        return;
+    }
+
+    const QString selected = pane->terminalView()->selectedText().trimmed();
+    if (selected.isEmpty()) {
+        statusBar()->showMessage(QStringLiteral("No selected URL or file path to open."), 2200);
+        return;
+    }
+
+    QUrl url = QUrl::fromUserInput(selected);
+    if (url.isValid() && !url.scheme().isEmpty() && QDesktopServices::openUrl(url)) {
+        statusBar()->showMessage(QStringLiteral("Opened: ") + selected, 2000);
+        return;
+    }
+
+    QFileInfo fileInfo(selected);
+    if (!fileInfo.exists()) {
+        const QString candidate = QDir::fromNativeSeparators(selected);
+        fileInfo = QFileInfo(candidate);
+    }
+    if (fileInfo.exists()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(fileInfo.absoluteFilePath()));
+        statusBar()->showMessage(QStringLiteral("Opened file: ") + fileInfo.absoluteFilePath(), 2000);
+        return;
+    }
+
+    statusBar()->showMessage(QStringLiteral("Selection is not a resolvable URL or file path."), 2500);
+}
+
+void MainWindow::checkLongRunningProcesses() {
+    QList<TerminalPane*> panes;
+    collectAllPanes(panes);
+
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 minDurationMs = static_cast<qint64>(m_settings.longRunningNotificationSeconds) * 1000;
+
+    QSet<TerminalPane*> live;
+    for (TerminalPane* pane : panes) {
+        if (!pane) {
+            continue;
+        }
+        live.insert(pane);
+        const bool running = pane->hasRunningProcess();
+        const bool known = m_runningSinceMs.contains(pane);
+        if (running && !known) {
+            m_runningSinceMs.insert(pane, now);
+            continue;
+        }
+
+        if (!running && known) {
+            const qint64 started = m_runningSinceMs.take(pane);
+            const qint64 elapsedMs = now - started;
+            if (elapsedMs >= minDurationMs) {
+                const QString msg = QStringLiteral("Long-running command completed in ") + pane->title();
+                if (m_trayIcon && m_trayIcon->isVisible() && QSystemTrayIcon::supportsMessages()) {
+                    m_trayIcon->showMessage(QStringLiteral("JTerm"), msg, QSystemTrayIcon::Information, 5000);
+                }
+                statusBar()->showMessage(msg, 3500);
+            }
+        }
+    }
+
+    for (auto it = m_runningSinceMs.begin(); it != m_runningSinceMs.end();) {
+        if (!live.contains(it.key())) {
+            it = m_runningSinceMs.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void MainWindow::refreshTabVisual(int index) {
     if (index < 0 || index >= m_tabWidget->count()) {
         return;
@@ -1924,4 +2376,15 @@ void MainWindow::refreshTabVisual(int index) {
 
     m_tabWidget->setTabText(index, info->title);
     m_tabWidget->setTabToolTip(index, QStringLiteral("Tab #") + info->id);
+
+    if (!info->colorHex.trimmed().isEmpty()) {
+        const QColor textColor(info->colorHex);
+        if (textColor.isValid()) {
+            m_tabWidget->tabBar()->setTabTextColor(index, textColor);
+            return;
+        }
+    }
+
+    const QColor defaultTextColor = m_tabWidget->palette().color(QPalette::WindowText);
+    m_tabWidget->tabBar()->setTabTextColor(index, defaultTextColor);
 }

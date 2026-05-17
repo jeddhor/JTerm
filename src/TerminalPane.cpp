@@ -96,6 +96,11 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
         QAction* broadcastSourceAction = menu.addAction(QStringLiteral("Broadcast Source"));
         broadcastSourceAction->setCheckable(true);
         broadcastSourceAction->setChecked(m_isBroadcastSource);
+        QAction* setBroadcastGroupAction = menu.addAction(QStringLiteral("Set Broadcast Group..."));
+        QAction* clearBroadcastGroupAction = menu.addAction(QStringLiteral("Clear Broadcast Group"));
+        clearBroadcastGroupAction->setEnabled(!m_broadcastGroup.trimmed().isEmpty());
+        menu.addSeparator();
+        QAction* openSelectionAction = menu.addAction(QStringLiteral("Open Selected URL/File"));
         menu.addSeparator();
         QAction* startupScriptAction = menu.addAction(QStringLiteral("Edit Startup Script..."));
         menu.addSeparator();
@@ -120,6 +125,12 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
             emit splitRequested(this, Qt::Horizontal);
         } else if (chosen == broadcastSourceAction) {
             emit broadcastSourceToggleRequested(this);
+        } else if (chosen == setBroadcastGroupAction) {
+            emit broadcastGroupEditRequested(this);
+        } else if (chosen == clearBroadcastGroupAction) {
+            emit broadcastGroupClearRequested(this);
+        } else if (chosen == openSelectionAction) {
+            emit openSelectionRequested(this);
         } else if (chosen == moveToTabAction) {
             emit moveToNewTabRequested(this);
         } else if (chosen == startupScriptAction) {
@@ -147,6 +158,9 @@ TerminalPane::TerminalPane(const QString& paneId, const QString& shellPath, QWid
     });
     connect(m_startupThrottleTimer, &QTimer::timeout, this, &TerminalPane::runNextStartupStep);
     m_startupThrottleTimer->setSingleShot(false);
+    connect(m_terminalView, &TerminalView::openSelectionRequested, this, [this]() {
+        emit openSelectionRequested(this);
+    });
 
     updateHeader();
 }
@@ -247,6 +261,15 @@ void TerminalPane::setBroadcastSourceSelected(bool selected) {
     m_isBroadcastSource = selected;
 }
 
+QString TerminalPane::broadcastGroup() const {
+    return m_broadcastGroup;
+}
+
+void TerminalPane::setBroadcastGroup(const QString& groupName) {
+    m_broadcastGroup = groupName.trimmed();
+    updateHeader();
+}
+
 TerminalView* TerminalPane::terminalView() const {
     return m_terminalView;
 }
@@ -271,8 +294,12 @@ bool TerminalPane::eventFilter(QObject* watched, QEvent* event) {
 void TerminalPane::updateHeader() {
     m_titleLabel->setText(m_title);
     const QString tooltip = m_title + QStringLiteral(" (id: ") + m_paneId + QStringLiteral(")");
-    m_titleLabel->setToolTip(tooltip);
-    m_titleBar->setToolTip(tooltip);
+    QString detailedTooltip = tooltip;
+    if (!m_broadcastGroup.trimmed().isEmpty()) {
+        detailedTooltip += QStringLiteral("\nBroadcast group: ") + m_broadcastGroup.trimmed();
+    }
+    m_titleLabel->setToolTip(detailedTooltip);
+    m_titleBar->setToolTip(detailedTooltip);
     m_startupIndicatorLabel->setVisible(!m_startupScript.trimmed().isEmpty());
     m_startupThrottleIndicatorLabel->setVisible(m_startupScriptThrottled && !m_startupScript.trimmed().isEmpty());
     m_moveToTabButton->setToolTip(QStringLiteral("Move ") + tooltip + QStringLiteral(" to a new tab"));

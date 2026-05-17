@@ -28,6 +28,7 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     , m_shellEdit(new QLineEdit(this))
     , m_maxPanesSpin(new QSpinBox(this))
     , m_startupThrottleSpin(new QSpinBox(this))
+    , m_longRunningNotificationSpin(new QSpinBox(this))
     , m_llmProviderCombo(new QComboBox(this))
     , m_llmBaseUrlEdit(new QLineEdit(this))
     , m_llmModelEdit(new QLineEdit(this))
@@ -40,6 +41,8 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     m_warnStartupScriptsCheck = new QCheckBox(QStringLiteral("Warn when loading layouts that contain startup commands"), this);
     m_autoSaveRestoreLayoutCheck = new QCheckBox(QStringLiteral("Restore last session tabs and panes on startup"), this);
     m_broadcastAllOverrideCheck = new QCheckBox(QStringLiteral("Broadcast always targets all panes (override targets)"), this);
+    m_confirmRiskyBroadcastCheck = new QCheckBox(QStringLiteral("Confirm before broadcasting risky commands"), this);
+    m_safePasteGuardCheck = new QCheckBox(QStringLiteral("Confirm before risky paste (multiline or sudo-prefixed)"), this);
     setWindowTitle(QStringLiteral("Settings"));
     resize(700, 520);
 
@@ -72,20 +75,30 @@ SettingsDialog::SettingsDialog(const AppSettings& initialSettings, QWidget* pare
     m_startupThrottleSpin->setSuffix(QStringLiteral(" s"));
     m_startupThrottleSpin->setValue(initialSettings.startupScriptThrottleIntervalSeconds);
 
+    m_longRunningNotificationSpin->setMinimum(5);
+    m_longRunningNotificationSpin->setMaximum(3600);
+    m_longRunningNotificationSpin->setSuffix(QStringLiteral(" s"));
+    m_longRunningNotificationSpin->setValue(initialSettings.longRunningNotificationSeconds);
+
     formLayout->addRow(QStringLiteral("Terminal color scheme:"), m_colorSchemeCombo);
     formLayout->addRow(QStringLiteral("Default shell:"), m_shellEdit);
     formLayout->addRow(QStringLiteral("Maximum panes:"), m_maxPanesSpin);
     formLayout->addRow(QStringLiteral("Startup throttle interval:"), m_startupThrottleSpin);
+    formLayout->addRow(QStringLiteral("Long-running completion notification:"), m_longRunningNotificationSpin);
 
     generalLayout->addLayout(formLayout);
     m_confirmExitCheck->setChecked(initialSettings.confirmOnMultiPaneExit);
     m_warnStartupScriptsCheck->setChecked(initialSettings.warnOnLayoutStartupScripts);
     m_autoSaveRestoreLayoutCheck->setChecked(initialSettings.autoSaveRestoreLayout);
     m_broadcastAllOverrideCheck->setChecked(initialSettings.broadcastAllOverride);
+    m_confirmRiskyBroadcastCheck->setChecked(initialSettings.confirmRiskyBroadcastCommands);
+    m_safePasteGuardCheck->setChecked(initialSettings.safePasteGuard);
     generalLayout->addWidget(m_confirmExitCheck);
     generalLayout->addWidget(m_warnStartupScriptsCheck);
     generalLayout->addWidget(m_autoSaveRestoreLayoutCheck);
     generalLayout->addWidget(m_broadcastAllOverrideCheck);
+    generalLayout->addWidget(m_confirmRiskyBroadcastCheck);
+    generalLayout->addWidget(m_safePasteGuardCheck);
     generalLayout->addStretch(1);
 
     auto* llmTab = new QWidget(this);
@@ -177,10 +190,13 @@ AppSettings SettingsDialog::collectSettingsFromUi() const {
     result.defaultShell = m_shellEdit->text().trimmed();
     result.maxPanes = m_maxPanesSpin->value();
     result.startupScriptThrottleIntervalSeconds = m_startupThrottleSpin->value();
+    result.longRunningNotificationSeconds = m_longRunningNotificationSpin->value();
     result.confirmOnMultiPaneExit = m_confirmExitCheck->isChecked();
     result.warnOnLayoutStartupScripts = m_warnStartupScriptsCheck->isChecked();
     result.autoSaveRestoreLayout = m_autoSaveRestoreLayoutCheck->isChecked();
     result.broadcastAllOverride = m_broadcastAllOverrideCheck->isChecked();
+    result.confirmRiskyBroadcastCommands = m_confirmRiskyBroadcastCheck->isChecked();
+    result.safePasteGuard = m_safePasteGuardCheck->isChecked();
 
     result.llmProvider = m_llmProviderCombo->currentData().toString().trimmed().toLower();
     result.llmBaseUrl = m_llmBaseUrlEdit->text().trimmed();

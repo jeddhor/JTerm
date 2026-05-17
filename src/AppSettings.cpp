@@ -33,7 +33,10 @@ AppSettings load() {
     result.warnOnLayoutStartupScripts = settings.value(QStringLiteral("ui/warnOnLayoutStartupScripts"), true).toBool();
     result.autoSaveRestoreLayout = settings.value(QStringLiteral("layout/autoSaveRestore"), true).toBool();
     result.broadcastAllOverride = settings.value(QStringLiteral("broadcast/allOverride"), false).toBool();
+    result.confirmRiskyBroadcastCommands = settings.value(QStringLiteral("broadcast/confirmRiskyCommands"), true).toBool();
+    result.safePasteGuard = settings.value(QStringLiteral("ui/safePasteGuard"), true).toBool();
     result.startupScriptThrottleIntervalSeconds = settings.value(QStringLiteral("startup/throttleIntervalSeconds"), 1).toInt();
+    result.longRunningNotificationSeconds = settings.value(QStringLiteral("ui/longRunningNotificationSeconds"), 20).toInt();
     result.llmProvider = settings.value(QStringLiteral("llm/provider"), QString()).toString().trimmed().toLower();
     result.llmBaseUrl = settings.value(QStringLiteral("llm/baseUrl"), QString()).toString().trimmed();
     result.llmModel = settings.value(QStringLiteral("llm/model"), QString()).toString().trimmed();
@@ -57,6 +60,12 @@ AppSettings load() {
     if (result.startupScriptThrottleIntervalSeconds > 300) {
         result.startupScriptThrottleIntervalSeconds = 300;
     }
+    if (result.longRunningNotificationSeconds < 5) {
+        result.longRunningNotificationSeconds = 5;
+    }
+    if (result.longRunningNotificationSeconds > 3600) {
+        result.longRunningNotificationSeconds = 3600;
+    }
     return result;
 }
 
@@ -70,7 +79,10 @@ void save(const AppSettings& settingsData) {
     settings.setValue(QStringLiteral("ui/warnOnLayoutStartupScripts"), settingsData.warnOnLayoutStartupScripts);
     settings.setValue(QStringLiteral("layout/autoSaveRestore"), settingsData.autoSaveRestoreLayout);
     settings.setValue(QStringLiteral("broadcast/allOverride"), settingsData.broadcastAllOverride);
+    settings.setValue(QStringLiteral("broadcast/confirmRiskyCommands"), settingsData.confirmRiskyBroadcastCommands);
+    settings.setValue(QStringLiteral("ui/safePasteGuard"), settingsData.safePasteGuard);
     settings.setValue(QStringLiteral("startup/throttleIntervalSeconds"), settingsData.startupScriptThrottleIntervalSeconds);
+    settings.setValue(QStringLiteral("ui/longRunningNotificationSeconds"), settingsData.longRunningNotificationSeconds);
     settings.setValue(QStringLiteral("llm/provider"), settingsData.llmProvider.trimmed().toLower());
     settings.setValue(QStringLiteral("llm/baseUrl"), settingsData.llmBaseUrl.trimmed());
     settings.setValue(QStringLiteral("llm/model"), settingsData.llmModel.trimmed());

@@ -27,12 +27,16 @@ public:
     void copy();
     void paste();
     void selectAll();
+    bool findInScrollback(const QString& query, bool forward = true);
+    QString selectedText() const;
     void focusTerminal();
     void sendKeyPress(int key, Qt::KeyboardModifiers modifiers, const QString& text = QString());
 
 signals:
     void becameActive();
     void keyPressed(int key, int modifiers, const QString& text);
+    void openSelectionRequested();
+    void pasteShortcutRequested();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

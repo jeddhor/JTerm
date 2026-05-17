@@ -43,10 +43,13 @@ private:
     QLineEdit* m_shellEdit;
     QSpinBox* m_maxPanesSpin;
     QSpinBox* m_startupThrottleSpin;
+    QSpinBox* m_longRunningNotificationSpin;
     QCheckBox* m_confirmExitCheck;
     QCheckBox* m_warnStartupScriptsCheck;
     QCheckBox* m_autoSaveRestoreLayoutCheck;
     QCheckBox* m_broadcastAllOverrideCheck;
+    QCheckBox* m_confirmRiskyBroadcastCheck;
+    QCheckBox* m_safePasteGuardCheck;
 
     QComboBox* m_llmProviderCombo;
     QLineEdit* m_llmBaseUrlEdit;

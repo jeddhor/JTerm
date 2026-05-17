@@ -29,6 +29,8 @@ public:
     void setBroadcastTargetChecked(bool checked);
     void setBroadcastTargetEnabled(bool enabled);
     void setBroadcastSourceSelected(bool selected);
+    QString broadcastGroup() const;
+    void setBroadcastGroup(const QString& groupName);
 
     TerminalView* terminalView() const;
 
@@ -46,6 +48,9 @@ signals:
     void moveToNewTabRequested(TerminalPane* pane);
     void broadcastTargetToggled(TerminalPane* pane, bool checked);
     void broadcastSourceToggleRequested(TerminalPane* pane);
+    void broadcastGroupEditRequested(TerminalPane* pane);
+    void broadcastGroupClearRequested(TerminalPane* pane);
+    void openSelectionRequested(TerminalPane* pane);
 
 private slots:
     void onInnerActivated();
@@ -73,4 +78,5 @@ private:
     TerminalView* m_terminalView;
     QTimer* m_startupThrottleTimer;
     bool m_isBroadcastSource;
+    QString m_broadcastGroup;
 };
