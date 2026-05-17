@@ -1,4 +1,6 @@
 APP := jterm
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
 
 ifeq ($(OS),Windows_NT)
 APP := jterm.exe
@@ -44,7 +46,7 @@ MOC_HEADERS := include/SnapSplitter.h include/LayoutEditorDialog.h include/Start
 MOC_SRC := $(patsubst include/%.h,build/moc_%.cpp,$(MOC_HEADERS))
 OBJ := $(patsubst src/%.cpp,build/%.o,$(SRC)) $(patsubst build/%.cpp,build/%.o,$(MOC_SRC))
 
-.PHONY: all clean run
+.PHONY: all clean run install uninstall
 
 all: $(APP)
 
@@ -65,6 +67,23 @@ build:
 
 run: $(APP)
 	./$(APP)
+
+install: $(APP)
+ifeq ($(OS),Windows_NT)
+	@echo "install target is intended for Linux/macOS."
+else
+	install -d "$(BINDIR)"
+	install -m 0755 "$(APP)" "$(BINDIR)/jterm"
+	@echo "Installed $(APP) to $(BINDIR)/jterm"
+endif
+
+uninstall:
+ifeq ($(OS),Windows_NT)
+	@echo "uninstall target is intended for Linux/macOS."
+else
+	rm -f "$(BINDIR)/jterm"
+	@echo "Removed $(BINDIR)/jterm"
+endif
 
 clean:
 	$(RM_RF)
