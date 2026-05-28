@@ -19,6 +19,8 @@ MOC ?= $(firstword \
 PKG_CONFIG ?= pkg-config
 
 QTERM_CANDIDATE_PKGS := qtermwidget6 qtermwidget6-qt6
+QTERM_DISCOVERED_PKGS := $(shell $(PKG_CONFIG) --list-all 2>/dev/null | awk '{print $$1}' | grep -Ei '^qtermwidget([0-9]+)?(-qt[0-9]+)?$$')
+QTERM_CANDIDATE_PKGS += qtermwidget qtermwidget-qt6 qtermwidget5 qtermwidget5-qt5 $(QTERM_DISCOVERED_PKGS)
 QTERM_PKG ?= $(firstword $(foreach p,$(QTERM_CANDIDATE_PKGS),$(if $(shell $(PKG_CONFIG) --exists $(p) 2>/dev/null && echo yes),$(p))))
 QTERM_FOUND := $(shell $(PKG_CONFIG) --exists $(QTERM_PKG) 2>/dev/null && echo yes)
 
@@ -27,7 +29,7 @@ $(error Qt6 moc not found. Install qt6-base-dev-tools or run make with MOC=/full
 endif
 
 ifeq ($(strip $(QTERM_FOUND)),)
-$(error qtermwidget pkg-config entry not found. Install libqtermwidget6-dev or libqtermwidget6-2-dev, or run make with QTERM_PKG=<pkg-config-name>)
+$(error qtermwidget pkg-config entry not found. Install qtermwidget dev package and pkg-config, then run 'pkg-config --list-all | grep -i qtermwidget' and build with make QTERM_PKG=<name>)
 endif
 
 QT_PACKAGES := Qt6Core Qt6Gui Qt6Widgets Qt6Network
