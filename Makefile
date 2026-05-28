@@ -26,8 +26,13 @@ ifeq ($(strip $(MOC)),)
 $(error Qt6 moc not found. Install qt6-base-dev-tools or run make with MOC=/full/path/to/moc)
 endif
 
+ifeq ($(strip $(QTERM_PKG)),)
+$(warning qtermwidget pkg-config package auto-detect failed; defaulting to qtermwidget6 linker fallback)
+QTERM_PKG := qtermwidget6
+endif
+
 ifeq ($(strip $(QTERM_FOUND)),)
-$(error qtermwidget pkg-config entry not found or not usable (QTERM_PKG='$(QTERM_PKG)'). Run 'pkg-config --list-all | grep -i qtermwidget' and build with make QTERM_PKG=<name>)
+$(warning qtermwidget pkg-config package '$(QTERM_PKG)' not usable via --exists; continuing with fallback linker flags)
 endif
 
 QT_PACKAGES := Qt6Core Qt6Gui Qt6Widgets Qt6Network
