@@ -18,18 +18,16 @@ MOC ?= $(firstword \
 	$(shell command -v moc 2>/dev/null))
 PKG_CONFIG ?= pkg-config
 
-QTERM_CANDIDATE_PKGS := qtermwidget6 qtermwidget6-qt6
-QTERM_DISCOVERED_PKGS := $(shell $(PKG_CONFIG) --list-all 2>/dev/null | awk '{print $$1}' | grep -Ei '^qtermwidget([0-9]+)?(-qt[0-9]+)?$$')
-QTERM_CANDIDATE_PKGS += qtermwidget qtermwidget-qt6 qtermwidget5 qtermwidget5-qt5 $(QTERM_DISCOVERED_PKGS)
-QTERM_PKG ?= $(firstword $(foreach p,$(QTERM_CANDIDATE_PKGS),$(if $(shell $(PKG_CONFIG) --exists $(p) 2>/dev/null && echo yes),$(p))))
-QTERM_FOUND := $(shell $(PKG_CONFIG) --exists $(QTERM_PKG) 2>/dev/null && echo yes)
+QTERM_CANDIDATE_PKGS := qtermwidget6 qtermwidget6-qt6 qtermwidget qtermwidget-qt6 qtermwidget5 qtermwidget5-qt5
+QTERM_PKG ?= $(shell for p in $(QTERM_CANDIDATE_PKGS); do $(PKG_CONFIG) --exists $$p 2>/dev/null && { echo $$p; exit 0; }; done)
+QTERM_FOUND := $(shell [ -n "$(QTERM_PKG)" ] && $(PKG_CONFIG) --exists "$(QTERM_PKG)" 2>/dev/null && echo yes)
 
 ifeq ($(strip $(MOC)),)
 $(error Qt6 moc not found. Install qt6-base-dev-tools or run make with MOC=/full/path/to/moc)
 endif
 
 ifeq ($(strip $(QTERM_FOUND)),)
-$(error qtermwidget pkg-config entry not found. Install qtermwidget dev package and pkg-config, then run 'pkg-config --list-all | grep -i qtermwidget' and build with make QTERM_PKG=<name>)
+$(error qtermwidget pkg-config entry not found or not usable (QTERM_PKG='$(QTERM_PKG)'). Run 'pkg-config --list-all | grep -i qtermwidget' and build with make QTERM_PKG=<name>)
 endif
 
 QT_PACKAGES := Qt6Core Qt6Gui Qt6Widgets Qt6Network
